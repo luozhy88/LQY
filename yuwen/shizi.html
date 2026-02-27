@@ -73,11 +73,18 @@
         
         <!-- 头部栏 -->
         <header class="bg-green-400 text-white p-4 text-center relative z-10 shadow-md rounded-b-2xl">
+            <!-- 返回主页按钮 -->
+            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">
+                🏠
+            </button>
+            
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
                 🌟 识字小达人 🌟
             </h1>
-            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">
-                🏠
+            
+            <!-- 全局音乐开关 -->
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">
+                🔇
             </button>
         </header>
 
@@ -109,7 +116,7 @@
                 <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
 
-            <!-- 卡片 (去除了强制的正方形限制，使用 py-8 自适应超大图片高度) -->
+            <!-- 卡片 -->
             <div class="bg-white border-4 border-blue-200 rounded-3xl w-full py-8 flex flex-col items-center justify-center relative shadow-lg">
                 <!-- 汉字与拼音 (点击发音) -->
                 <div class="text-center cursor-pointer group" onclick="app.playAudio()">
@@ -122,7 +129,6 @@
                 
                 <!-- 意思图片 (点击换图) -->
                 <div class="text-center cursor-pointer mt-4 group" onclick="app.nextImage()">
-                    <!-- 将原先的 text-[140px] 放大到 text-[260px] -->
                     <div id="learn-image" class="text-[260px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">
                         💧
                     </div>
@@ -142,13 +148,8 @@
 
         <!-- 视图 3：测验模式 (找图 / 找音) -->
         <div id="view-quiz" class="hidden flex-1 p-6 flex flex-col items-center gap-6 bounce-in relative">
-            <!-- 音乐开关 -->
-            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute top-2 right-4 text-2xl hover:scale-110 transition-transform z-10">
-                🎵
-            </button>
-
             <!-- 计分板 -->
-            <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-4">
+            <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-2">
                 <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/10</span></div>
                 <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
             </div>
@@ -180,9 +181,9 @@
         </div>
     </div>
 
-    <!-- 测验背景音乐 (使用免费欢快儿童音乐) -->
-    <audio id="quiz-bgm" loop preload="auto">
-        <source src="https://assets.mixkit.co/music/preview/mixkit-happy-times-158.mp3" type="audio/mpeg">
+    <!-- 全局背景音乐 (增加 autoplay 尝试自动播放，无版权轻音乐) -->
+    <audio id="app-bgm" loop autoplay preload="auto">
+        <source src="https://assets.mixkit.co/music/preview/mixkit-feeling-happy-5.mp3" type="audio/mpeg">
     </audio>
 
     <script>
@@ -237,9 +238,69 @@
             quizType: null, // 'image' 或 'pinyin'
             score: 0,
             
+            // 全局背景音乐状态
+            isBgmPlaying: false,
+            bgmInitialized: false,
+            
             // 初始化
             init() {
                 document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
+                
+                const bgm = document.getElementById('app-bgm');
+                bgm.volume = 0.15; // 音量调低为 15%，作为轻柔背景音，不盖过电脑语音读字的声音
+                
+                // 尝试直接自动播放音乐
+                const playPromise = bgm.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // 浏览器允许自动播放
+                        this.bgmInitialized = true;
+                        this.isBgmPlaying = true;
+                        document.getElementById('btn-bgm').innerText = '🎵';
+                        document.getElementById('btn-bgm').classList.remove('opacity-50');
+                    }).catch(error => {
+                        // 浏览器限制自动播放（常见情况），等待用户点击页面任意位置
+                        console.log('自动播放受限，等待用户点击屏幕...');
+                    });
+                }
+                
+                // 监听第一次用户交互，以绕过浏览器自动播放限制的兜底方案
+                const startAudioOnInteraction = () => {
+                    if (!this.bgmInitialized) {
+                        this.bgmInitialized = true;
+                        this.isBgmPlaying = true;
+                        bgm.play().catch(e => console.log('交互后播放失败:', e));
+                        
+                        document.getElementById('btn-bgm').innerText = '🎵';
+                        document.getElementById('btn-bgm').classList.remove('opacity-50');
+                        
+                        // 触发一次后即可移除监听
+                        document.removeEventListener('click', startAudioOnInteraction);
+                        document.removeEventListener('touchstart', startAudioOnInteraction);
+                    }
+                };
+                
+                document.addEventListener('click', startAudioOnInteraction);
+                document.addEventListener('touchstart', startAudioOnInteraction);
+            },
+
+            // 背景音乐切换
+            toggleBGM() {
+                this.bgmInitialized = true; // 标记已交互，防止上面的自动播放冲突
+                this.isBgmPlaying = !this.isBgmPlaying;
+                const bgm = document.getElementById('app-bgm');
+                const btn = document.getElementById('btn-bgm');
+                
+                if (this.isBgmPlaying) {
+                    bgm.volume = 0.15;
+                    bgm.play().catch(e => console.log(e));
+                    btn.innerText = '🎵';
+                    btn.classList.remove('opacity-50');
+                } else {
+                    bgm.pause();
+                    btn.innerText = '🔇';
+                    btn.classList.add('opacity-50');
+                }
             },
 
             // 解析用户输入
@@ -276,7 +337,6 @@
             },
 
             goHome() {
-                this.stopBGM();
                 this.switchView('view-home');
             },
 
@@ -345,7 +405,7 @@
                     setTimeout(() => { imgEl.style.transform = 'scale(1)'; }, 150);
                 }
                 
-                // 【新增】点击图片时，同时发出这个汉字的声音
+                // 点击图片时，同时发出这个汉字的声音
                 this.playAudio();
             },
 
@@ -378,7 +438,7 @@
                 }
 
                 if (charToSpeak && 'speechSynthesis' in window) {
-                    // 关键优化：取消当前正在播放的所有语音排队，防止连续点击时声音堆叠延迟
+                    // 取消当前正在播放的所有语音排队，防止连续点击时声音堆叠延迟
                     window.speechSynthesis.cancel();
                     
                     const utterance = new SpeechSynthesisUtterance(charToSpeak);
@@ -402,9 +462,6 @@
                 this.quizType = type;
                 this.currentIndex = 0;
                 this.score = 0;
-                
-                // 开启测验背景音乐
-                this.playBGM();
                 
                 // 打乱题目顺序
                 this.quizSequence = [...this.chars].sort(() => Math.random() - 0.5);
@@ -519,7 +576,6 @@
 
             // 显示成功结算界面
             showSuccess(msg) {
-                this.stopBGM(); // 测验结束，停止音乐
                 document.getElementById('modal-msg').innerText = msg;
                 document.getElementById('modal-success').classList.remove('hidden');
                 
@@ -547,41 +603,6 @@
                         requestAnimationFrame(frame);
                     }
                 }());
-            },
-
-            // --- 背景音乐控制逻辑 ---
-            isBgmPlaying: true,
-            playBGM() {
-                const bgm = document.getElementById('quiz-bgm');
-                bgm.volume = 0.15; // 音量调低为 15%，作为轻柔背景音，不盖过电脑语音读字的声音
-                if (this.isBgmPlaying) {
-                    // 捕捉浏览器自动播放限制可能带来的错误
-                    bgm.play().catch(e => console.log('浏览器限制自动播放音乐:', e));
-                    const btn = document.getElementById('btn-bgm');
-                    if(btn) {
-                        btn.innerText = '🎵';
-                        btn.classList.remove('opacity-50');
-                    }
-                }
-            },
-            stopBGM() {
-                const bgm = document.getElementById('quiz-bgm');
-                bgm.pause();
-                bgm.currentTime = 0; // 重置到开头
-            },
-            toggleBGM() {
-                this.isBgmPlaying = !this.isBgmPlaying;
-                const bgm = document.getElementById('quiz-bgm');
-                const btn = document.getElementById('btn-bgm');
-                if (this.isBgmPlaying) {
-                    bgm.play().catch(e => console.log(e));
-                    btn.innerText = '🎵';
-                    btn.classList.remove('opacity-50');
-                } else {
-                    bgm.pause();
-                    btn.innerText = '🔇';
-                    btn.classList.add('opacity-50');
-                }
             }
         };
 
