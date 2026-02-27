@@ -1,0 +1,594 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>识字小达人 - 一年级语文学习</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 拼音库 -->
+    <script src="https://unpkg.com/pinyin-pro@3.19.4/dist/index.js"></script>
+    <!-- 撒花特效库 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        /* 自定义可爱字体和排版 */
+        body {
+            font-family: "Comic Sans MS", "Chalkboard SE", "楷体", "KaiTi", sans-serif;
+            background-color: #f0fdf4;
+            background-image: radial-gradient(#bbf7d0 2px, transparent 2px);
+            background-size: 30px 30px;
+            touch-action: manipulation;
+        }
+
+        /* 拼音排版优化 */
+        ruby {
+            ruby-align: center;
+        }
+        rt {
+            font-family: Arial, sans-serif; /* 拼音使用无衬线字体更清晰 */
+            font-size: 0.5em;
+            color: #ef4444;
+            margin-bottom: 5px;
+        }
+
+        /* 动画效果 */
+        .bounce-in {
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+        }
+
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-gray-800">
+
+    <!-- 应用主容器 -->
+    <div id="app-container" class="w-full max-w-md bg-white rounded-3xl card-shadow overflow-hidden relative min-h-[600px] flex flex-col">
+        
+        <!-- 头部栏 -->
+        <header class="bg-green-400 text-white p-4 text-center relative z-10 shadow-md rounded-b-2xl">
+            <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
+                🌟 识字小达人 🌟
+            </h1>
+            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">
+                🏠
+            </button>
+        </header>
+
+        <!-- 视图 1：主页/输入页 -->
+        <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
+            <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300">
+                <label class="block text-lg font-bold text-yellow-800 mb-2">✏️ 输入要学习的字：</label>
+                <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3">日月水火山田石土牛羊马春风雨云</textarea>
+                <p class="text-xs text-yellow-600 mt-2">家长提示：请在此输入一类字，程序会自动识别拼音并匹配图片。</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 mt-auto">
+                <button onclick="app.startLearning()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all">
+                    📖 开始学习
+                </button>
+                <button onclick="app.startQuiz('image')" class="bg-pink-500 hover:bg-pink-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#db2777] active:shadow-[0_0px_0_#db2777] active:translate-y-[6px] transition-all">
+                    🖼️ 看字找图 (测验)
+                </button>
+                <button onclick="app.startQuiz('pinyin')" class="bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#9333ea] active:shadow-[0_0px_0_#9333ea] active:translate-y-[6px] transition-all">
+                    🔤 看字找音 (测验)
+                </button>
+            </div>
+        </div>
+
+        <!-- 视图 2：学习模式 -->
+        <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in">
+            <!-- 进度条 -->
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+
+            <!-- 卡片 (去除了强制的正方形限制，使用 py-8 自适应超大图片高度) -->
+            <div class="bg-white border-4 border-blue-200 rounded-3xl w-full py-8 flex flex-col items-center justify-center relative shadow-lg">
+                <!-- 汉字与拼音 (点击发音) -->
+                <div class="text-center cursor-pointer group" onclick="app.playAudio()">
+                    <ruby class="text-[80px] font-bold text-gray-800 leading-none mt-2 group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
+                        <span id="learn-char">水</span>
+                        <rt id="learn-pinyin" class="text-[32px] tracking-widest font-sans">shuǐ</rt>
+                    </ruby>
+                    <p class="text-[12px] text-blue-400 mt-2 font-bold opacity-80">👆 点击汉字听发音</p>
+                </div>
+                
+                <!-- 意思图片 (点击换图) -->
+                <div class="text-center cursor-pointer mt-4 group" onclick="app.nextImage()">
+                    <!-- 将原先的 text-[140px] 放大到 text-[260px] -->
+                    <div id="learn-image" class="text-[260px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">
+                        💧
+                    </div>
+                    <p class="text-[12px] text-yellow-500 mt-4 font-bold opacity-80">👆 点击图片听读音并换图</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between w-full gap-4 mt-2">
+                <button onclick="app.prevChar()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none">
+                    ⬅️ 上一个
+                </button>
+                <button onclick="app.nextChar()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none">
+                    下一个 ➡️
+                </button>
+            </div>
+        </div>
+
+        <!-- 视图 3：测验模式 (找图 / 找音) -->
+        <div id="view-quiz" class="hidden flex-1 p-6 flex flex-col items-center gap-6 bounce-in relative">
+            <!-- 音乐开关 -->
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute top-2 right-4 text-2xl hover:scale-110 transition-transform z-10">
+                🎵
+            </button>
+
+            <!-- 计分板 -->
+            <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-4">
+                <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/10</span></div>
+                <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
+            </div>
+
+            <h2 id="quiz-prompt" class="text-2xl font-bold text-center text-gray-800 mt-2">哪一张图是它？</h2>
+            
+            <!-- 题目字 -->
+            <div class="bg-white border-4 border-pink-200 rounded-3xl w-40 h-40 flex items-center justify-center shadow-md relative">
+                <span id="quiz-char" class="text-[80px] font-bold text-gray-800">火</span>
+            </div>
+
+            <!-- 选项网格 -->
+            <div id="quiz-options" class="grid grid-cols-2 gap-4 w-full mt-4">
+                <!-- 选项通过 JS 动态生成 -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 成功通关弹窗 -->
+    <div id="modal-success" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center bounce-in relative overflow-hidden">
+            <div class="text-[80px] mb-4">🎉</div>
+            <h2 class="text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
+            <p id="modal-msg" class="text-lg text-gray-600 mb-6">你已经完成了所有的练习！</p>
+            <button onclick="app.goHome()" class="w-full bg-green-500 text-white text-xl font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">
+                返回首页
+            </button>
+        </div>
+    </div>
+
+    <!-- 测验背景音乐 (使用免费欢快儿童音乐) -->
+    <audio id="quiz-bgm" loop preload="auto">
+        <source src="https://assets.mixkit.co/music/preview/mixkit-happy-times-158.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // 内置一年级常用字字典（支持多图，代表同一个意思的不同展现方式）
+        const charDictionary = {
+            '日': ['☀️', '🌞', '🌅', '🌇'],
+            '月': ['🌙', '🌛', '🌕', '🌗'],
+            '水': ['💧', '🌊', '💦', '🚰'],
+            '火': ['🔥', '🧨', '🌋', '⛺'],
+            '山': ['⛰️', '🏔️', '🗻', '🏞️'],
+            '石': ['🪨', '🗿', '💎'],
+            '田': ['🌾', '🚜', '🟩'],
+            '土': ['🪴', '🧱', '🤎'],
+            '牛': ['🐂', '🐄', '🐃', '🥛'],
+            '羊': ['🐏', '🐑', '🐐'],
+            '马': ['🐎', '🎠', '🐴'],
+            '春': ['🌸', '🌱', '🪁', '🌷'],
+            '夏': ['🍉', '🍦', '☀️', '🦟'],
+            '秋': ['🍁', '🍂', '🌾'],
+            '冬': ['⛄', '❄️', '🧣'],
+            '风': ['🌬️', '🌪️', '🪁'],
+            '雨': ['🌧️', '☔', '🌂'],
+            '云': ['☁️', '🌥️', '⛈️'],
+            '雪': ['❄️', '⛄', '🏔️'],
+            '天': ['🌤️', '🌌', '🌈'],
+            '地': ['🌍', '🌱', '🛣️'],
+            '人': ['🚶', '🧍', '👨‍👩‍👦'],
+            '口': ['👄', '🗣️', '🦷'],
+            '目': ['👁️', '👀', '👓'],
+            '耳': ['👂', '🦻', '🎧'],
+            '手': ['🖐️', '🤝', '👋', '✍️'],
+            '足': ['🦶', '👣', '🦵', '⚽'],
+            '大': ['🐘', '🐳', '🏢'],
+            '小': ['🐜', '🐁', '🦠'],
+            '多': ['💯', '📚', '💰'],
+            '少': ['🤏', '💧', '🪙'],
+            '男': ['👦', '👨', '🚹'],
+            '女': ['👧', '👩', '🚺'],
+            '上': ['⬆️', '👆', '🛫'],
+            '下': ['⬇️', '👇', '🛬']
+        };
+
+        // 通用兜底图标库（如果输入的字不在字典里，随机用这些）
+        const fallbackIcons = ['🌟', '✨', '🎈', '🎉', '🍎', '🧸', '🎨', '🚀', '🌈', '🍭'];
+
+        const { pinyin } = pinyinPro; // 引入 pinyin-pro 库
+
+        const app = {
+            chars: [], // 当前学习的汉字数组
+            currentIndex: 0,
+            currentImageIndex: 0,
+            quizType: null, // 'image' 或 'pinyin'
+            score: 0,
+            
+            // 初始化
+            init() {
+                document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
+            },
+
+            // 解析用户输入
+            parseInput() {
+                const text = document.getElementById('input-chars').value;
+                // 提取所有的中文字符
+                const regex = /[\u4e00-\u9fa5]/g;
+                const matches = text.match(regex);
+                if (!matches || matches.length === 0) {
+                    alert("请至少输入一个汉字哦！");
+                    return false;
+                }
+                // 去重
+                this.chars = [...new Set(matches)];
+                return true;
+            },
+
+            // 切换视图
+            switchView(viewId) {
+                document.getElementById('view-home').classList.add('hidden');
+                document.getElementById('view-learn').classList.add('hidden');
+                document.getElementById('view-quiz').classList.add('hidden');
+                document.getElementById('modal-success').classList.add('hidden');
+                
+                document.getElementById(viewId).classList.remove('hidden');
+                
+                // 显示/隐藏返回首页按钮
+                const backBtn = document.getElementById('btn-home-back');
+                if (viewId === 'view-home') {
+                    backBtn.classList.add('hidden');
+                } else {
+                    backBtn.classList.remove('hidden');
+                }
+            },
+
+            goHome() {
+                this.stopBGM();
+                this.switchView('view-home');
+            },
+
+            // ---- 学习模式逻辑 ----
+            startLearning() {
+                if (!this.parseInput()) return;
+                this.currentIndex = 0;
+                this.currentImageIndex = 0;
+                this.switchView('view-learn');
+                this.renderLearnCard();
+            },
+
+            renderLearnCard() {
+                const char = this.chars[this.currentIndex];
+                const py = pinyin(char, { toneType: 'symbol' }); // 获取带声调的拼音
+                
+                document.getElementById('learn-char').innerText = char;
+                document.getElementById('learn-pinyin').innerText = py;
+                
+                // 更新图片
+                this.updateLearnImage(char);
+                
+                // 更新进度条
+                const progress = ((this.currentIndex + 1) / this.chars.length) * 100;
+                document.getElementById('learn-progress').style.width = `${progress}%`;
+
+                // 添加卡片动画
+                const card = document.getElementById('view-learn').querySelector('.bg-white');
+                card.classList.remove('bounce-in');
+                void card.offsetWidth; // 触发重绘
+                card.classList.add('bounce-in');
+
+                // 自动播放读音
+                this.playAudio();
+            },
+
+            updateLearnImage(char) {
+                let images = charDictionary[char];
+                if (!images) {
+                    // 如果字典里没有，分配一个兜底图标 (根据字编码固定随机，保证每次同一个字图标一样)
+                    const code = char.charCodeAt(0);
+                    images = [fallbackIcons[code % fallbackIcons.length]];
+                }
+                
+                // 确保图片索引不越界
+                this.currentImageIndex = this.currentImageIndex % images.length;
+                document.getElementById('learn-image').innerText = images[this.currentImageIndex];
+            },
+
+            nextImage() {
+                const char = this.chars[this.currentIndex];
+                let imgCount = charDictionary[char] ? charDictionary[char].length : 1;
+                
+                if (imgCount > 1) {
+                    this.currentImageIndex = (this.currentImageIndex + 1) % imgCount;
+                    this.updateLearnImage(char);
+                    
+                    // 添加小动画
+                    const imgEl = document.getElementById('learn-image');
+                    imgEl.style.transform = 'scale(0.8)';
+                    setTimeout(() => { imgEl.style.transform = 'scale(1)'; }, 150);
+                } else {
+                    // 即使只有一张图，点击时也给个弹性反馈动画，让孩子知道自己点到了
+                    const imgEl = document.getElementById('learn-image');
+                    imgEl.style.transform = 'scale(0.8)';
+                    setTimeout(() => { imgEl.style.transform = 'scale(1)'; }, 150);
+                }
+                
+                // 【新增】点击图片时，同时发出这个汉字的声音
+                this.playAudio();
+            },
+
+            nextChar() {
+                if (this.currentIndex < this.chars.length - 1) {
+                    this.currentIndex++;
+                    this.currentImageIndex = 0;
+                    this.renderLearnCard();
+                } else {
+                    this.showSuccess("所有的字都学完啦！快去测验一下吧！");
+                }
+            },
+
+            prevChar() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.currentImageIndex = 0;
+                    this.renderLearnCard();
+                }
+            },
+
+            playAudio() {
+                let charToSpeak = "";
+                
+                // 判断当前在哪个视图，决定读哪个字，确保声音和显示的字绝对一致
+                if (!document.getElementById('view-learn').classList.contains('hidden')) {
+                    charToSpeak = this.chars[this.currentIndex];
+                } else if (!document.getElementById('view-quiz').classList.contains('hidden')) {
+                    charToSpeak = document.getElementById('quiz-char').innerText;
+                }
+
+                if (charToSpeak && 'speechSynthesis' in window) {
+                    // 关键优化：取消当前正在播放的所有语音排队，防止连续点击时声音堆叠延迟
+                    window.speechSynthesis.cancel();
+                    
+                    const utterance = new SpeechSynthesisUtterance(charToSpeak);
+                    utterance.lang = 'zh-CN';
+                    utterance.rate = 0.8; // 稍微慢一点，适合小孩
+                    window.speechSynthesis.speak(utterance);
+                }
+            },
+
+            // ---- 测验模式逻辑 ----
+            startQuiz(type) {
+                if (!this.parseInput()) return;
+                
+                // 如果字数太少，没法生成4个选项，进行提示
+                if (this.chars.length < 4) {
+                    // 自动从预设里借几个字来凑数
+                    const extras = ['日', '月', '水', '火'].filter(c => !this.chars.includes(c));
+                    this.chars.push(...extras.slice(0, 4 - this.chars.length));
+                }
+
+                this.quizType = type;
+                this.currentIndex = 0;
+                this.score = 0;
+                
+                // 开启测验背景音乐
+                this.playBGM();
+                
+                // 打乱题目顺序
+                this.quizSequence = [...this.chars].sort(() => Math.random() - 0.5);
+                
+                this.switchView('view-quiz');
+                
+                if (type === 'image') {
+                    document.getElementById('quiz-prompt').innerText = "哪一张图是它？";
+                } else {
+                    document.getElementById('quiz-prompt').innerText = "它的拼音是哪个？";
+                }
+
+                this.renderQuizQuestion();
+            },
+
+            renderQuizQuestion() {
+                if (this.currentIndex >= this.quizSequence.length) {
+                    this.showSuccess(`太棒了！你答对了 ${this.score} 道题！`);
+                    return;
+                }
+
+                const targetChar = this.quizSequence[this.currentIndex];
+                document.getElementById('quiz-char').innerText = targetChar;
+                document.getElementById('quiz-score').innerText = this.score;
+                document.getElementById('quiz-progress-text').innerText = `${this.currentIndex + 1}/${this.quizSequence.length}`;
+
+                // 生成选项
+                let options = [targetChar]; // 存放汉字
+                
+                // 找3个干扰项
+                let distractors = [...this.chars].filter(c => c !== targetChar);
+                distractors = distractors.sort(() => Math.random() - 0.5).slice(0, 3);
+                
+                // 如果不够3个干扰项（比如总字数少），从字典里补
+                if (distractors.length < 3) {
+                    const extraDict = Object.keys(charDictionary).filter(c => c !== targetChar && !distractors.includes(c));
+                    const extras = extraDict.sort(() => Math.random() - 0.5).slice(0, 3 - distractors.length);
+                    distractors.push(...extras);
+                }
+
+                options = options.concat(distractors);
+                options.sort(() => Math.random() - 0.5); // 打乱选项顺序
+
+                // 渲染选项按钮
+                const optionsContainer = document.getElementById('quiz-options');
+                optionsContainer.innerHTML = '';
+
+                options.forEach(optChar => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[60px] flex items-center justify-center shadow-sm hover:border-pink-400 hover:shadow-md transition-all active:scale-95";
+                    
+                    // 根据测验类型显示不同内容
+                    if (this.quizType === 'image') {
+                        let imgs = charDictionary[optChar] || [fallbackIcons[optChar.charCodeAt(0) % fallbackIcons.length]];
+                        btn.innerText = imgs[Math.floor(Math.random() * imgs.length)]; // 随机取该字的一张图
+                    } else {
+                        btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:border-purple-400 hover:shadow-md transition-all active:scale-95";
+                        btn.innerText = pinyin(optChar, { toneType: 'symbol' });
+                    }
+
+                    btn.onclick = () => this.handleQuizAnswer(optChar === targetChar, btn);
+                    optionsContainer.appendChild(btn);
+                });
+
+                // 自动读题
+                this.playAudio();
+                
+                // 动画
+                document.getElementById('quiz-char').parentElement.classList.remove('bounce-in');
+                void document.getElementById('quiz-char').parentElement.offsetWidth;
+                document.getElementById('quiz-char').parentElement.classList.add('bounce-in');
+            },
+
+            handleQuizAnswer(isCorrect, btnEl) {
+                if (isCorrect) {
+                    // 答对
+                    this.score += 10;
+                    btnEl.classList.add('bg-green-100', 'border-green-500');
+                    
+                    // 撒花特效
+                    confetti({
+                        particleCount: 50,
+                        spread: 60,
+                        origin: { y: 0.8 },
+                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
+                    });
+
+                    // 禁用所有按钮防止重复点击
+                    const btns = document.getElementById('quiz-options').querySelectorAll('button');
+                    btns.forEach(b => b.disabled = true);
+
+                    setTimeout(() => {
+                        this.currentIndex++;
+                        this.renderQuizQuestion();
+                    }, 1000);
+                } else {
+                    // 答错
+                    btnEl.classList.add('shake', 'bg-red-50', 'border-red-400');
+                    setTimeout(() => {
+                        btnEl.classList.remove('shake');
+                    }, 400);
+                    
+                    // 播放一个错误的音效 (简单的合成音)
+                    if ('speechSynthesis' in window) {
+                        const ut = new SpeechSynthesisUtterance("再想想哦");
+                        ut.lang = 'zh-CN';
+                        ut.rate = 1.2;
+                        window.speechSynthesis.speak(ut);
+                    }
+                }
+            },
+
+            // 显示成功结算界面
+            showSuccess(msg) {
+                this.stopBGM(); // 测验结束，停止音乐
+                document.getElementById('modal-msg').innerText = msg;
+                document.getElementById('modal-success').classList.remove('hidden');
+                
+                // 大量撒花
+                const duration = 3 * 1000;
+                const end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 5,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
+                    });
+                    confetti({
+                        particleCount: 5,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+            },
+
+            // --- 背景音乐控制逻辑 ---
+            isBgmPlaying: true,
+            playBGM() {
+                const bgm = document.getElementById('quiz-bgm');
+                bgm.volume = 0.15; // 音量调低为 15%，作为轻柔背景音，不盖过电脑语音读字的声音
+                if (this.isBgmPlaying) {
+                    // 捕捉浏览器自动播放限制可能带来的错误
+                    bgm.play().catch(e => console.log('浏览器限制自动播放音乐:', e));
+                    const btn = document.getElementById('btn-bgm');
+                    if(btn) {
+                        btn.innerText = '🎵';
+                        btn.classList.remove('opacity-50');
+                    }
+                }
+            },
+            stopBGM() {
+                const bgm = document.getElementById('quiz-bgm');
+                bgm.pause();
+                bgm.currentTime = 0; // 重置到开头
+            },
+            toggleBGM() {
+                this.isBgmPlaying = !this.isBgmPlaying;
+                const bgm = document.getElementById('quiz-bgm');
+                const btn = document.getElementById('btn-bgm');
+                if (this.isBgmPlaying) {
+                    bgm.play().catch(e => console.log(e));
+                    btn.innerText = '🎵';
+                    btn.classList.remove('opacity-50');
+                } else {
+                    bgm.pause();
+                    btn.innerText = '🔇';
+                    btn.classList.add('opacity-50');
+                }
+            }
+        };
+
+        // 启动应用
+        window.onload = () => {
+            app.init();
+        };
+    </script>
+</body>
+</html>
