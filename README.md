@@ -1,2 +1,3 @@
 # LQY
-https://luozhy88.github.io/yuwen/shizi.html
+
+https://luozhy88.github.io/LQY/yuwen/shizi.html
