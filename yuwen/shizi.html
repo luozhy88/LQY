@@ -3,17 +3,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V1.8 (支持自定义每关字数)
+      版本：V1.9 (解决多平台部署发信失败的问题)
       更新内容：
-      1. 新增：用户可自定义“每关字数”（默认15，最少5个），修改后自动重新划分所有关卡和进度。
-      2. 修复：引入了公共跨域代理 (corsproxy.io)，完美解决纯前端直接调用 Resend API 导致的 CORS 跨域拦截问题 (Failed to fetch)。
-      3. 优化：提升了发送失败或被拦截时的错误弹窗提示，以便于排查问题。
-      4. UI更新：版本号升级为 v1.8。
+      1. 核心修复：加入了“多重代理自动重试 (Fallback)”机制。解决 Cloudflare Pages 部署时由于 CF 内部回源限制导致的 Failed to fetch 拦截问题。
+      2. 优化：测试发送按钮新增了“发送中...”的加载状态，防止重复点击。
+      3. UI更新：版本号升级为 v1.9。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v1.8</title>
+    <title>识字小达人 - 一年级语文学习 v1.9</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 拼音库 -->
@@ -89,7 +88,7 @@
             
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.8</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.9</span>
             </h1>
             
             <!-- 全局音乐开关 -->
@@ -102,7 +101,7 @@
         <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
             <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
                 
-                <!-- V1.8 新增：自定义每关字数 -->
+                <!-- 自定义每关字数 -->
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
                     <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
                     <div class="flex items-center gap-2">
@@ -140,7 +139,7 @@
                     </button>
                 </div>
                 <!-- 邮件测试按钮 -->
-                <button onclick="app.testEmail()" class="bg-gray-400 hover:bg-gray-500 text-white text-lg font-bold py-3 rounded-2xl shadow-[0_4px_0_#4b5563] active:shadow-[0_0px_0_#4b5563] active:translate-y-[4px] transition-all">
+                <button onclick="app.testEmail()" class="bg-gray-400 hover:bg-gray-500 text-white text-lg font-bold py-3 rounded-2xl shadow-[0_4px_0_#4b5563] active:shadow-[0_0px_0_#4b5563] active:translate-y-[4px] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     ✉️ 测试发送邮件
                 </button>
             </div>
@@ -380,7 +379,7 @@
                 }
             },
 
-            // --- V1.8 新增：响应修改字数 ---
+            // --- 响应修改字数 ---
             updateGroupSize() {
                 let val = parseInt(document.getElementById('chars-per-level').value);
                 if (isNaN(val) || val < 5) val = 5; // 限制最少 5 个字
@@ -738,15 +737,15 @@
                 }());
             },
 
-            // V1.7 新增：点击按钮手动测试发送邮件
+            // 点击按钮手动测试发送邮件
             testEmail() {
                 this.currentMode = 'test';
                 this.chars = ['测', '试', '邮', '件'];
                 this.sendEmailReport(true);
             },
 
-            // --- 发送邮件报告功能 (调用 Resend API) ---
-            sendEmailReport(isTest = false) {
+            // --- 发送邮件报告功能 (多节点回源机制 V1.9) ---
+            async sendEmailReport(isTest = false) {
                 const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
                 let subject = "【识字小达人】学习报告";
                 let htmlContent = "";
@@ -759,7 +758,8 @@
                     subject = `🛠️ 测试邮件 - API连通性检测 - ${dateStr}`;
                     htmlContent = `
                         <h2>恭喜！这是一封测试邮件！</h2>
-                        <p>如果您能看到这封邮件，说明网页端的 API 请求（配合代理）已经完全正确且连通成功！</p>
+                        <p>如果您能看到这封邮件，说明网页端的 API 请求（配合多重代理）已经完全正确且连通成功！</p>
+                        <p>这证明 Cloudflare Pages 的跨域拦截问题已被成功绕过。</p>
                         <p>后续宝宝完成学习和测验后，会自动给您发送真实的成绩单，敬请期待。</p>
                     `;
                 } else if (this.currentMode === 'learn') {
@@ -790,34 +790,82 @@
                     `;
                 }
 
-                // 【核心修复】使用免费的公共跨域代理绕过浏览器的直接拦截
-                const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.resend.com/emails");
+                const targetUrl = "https://api.resend.com/emails";
+                
+                // 【核心修复】多重代理自动重试通道
+                // 由于 corsproxy.io 也部署在 Cloudflare。当你的网站同样部署在 Cloudflare Pages 时，
+                // CF 防火墙为防死循环会直接切断请求（导致 Failed to fetch）。
+                // 所以在这里我们配置了非 Cloudflare 的备用代理节点，当前一个失败时，它会自动切换到下一个继续重发。
+                const proxies = [
+                    "https://corsproxy.io/?" + encodeURIComponent(targetUrl),               // 节点1（主用，部分平台可能被拦截）
+                    "https://thingproxy.freeboard.io/fetch/" + targetUrl,                   // 节点2（备用非CF节点）
+                    targetUrl                                                               // 直连节点（作为终极托底）
+                ];
 
-                fetch(proxyUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        from: 'onboarding@resend.dev',
-                        to: '479321347@qq.com',
-                        subject: subject,
-                        html: htmlContent
-                    })
-                }).then(async res => {
-                    const data = await res.json();
-                    if (res.ok) {
-                        console.log("✅ 学习报告已成功自动发送:", data);
-                        if (isTest) alert("邮件发送成功！请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\nAPI 响应ID: " + data.id);
-                    } else {
-                        console.error("❌ 学习报告发送失败:", data);
-                        if (isTest) alert("邮件发送被 Resend 拒绝！错误原因：\n" + data.message);
+                const payload = {
+                    from: 'onboarding@resend.dev',
+                    to: '479321347@qq.com',
+                    subject: subject,
+                    html: htmlContent
+                };
+
+                // 测试按钮加上交互等待反馈
+                const testBtn = document.querySelector('button[onclick="app.testEmail()"]');
+                if (isTest && testBtn) {
+                    testBtn.innerText = "⏳ 正在发送中...";
+                    testBtn.disabled = true;
+                }
+
+                let success = false;
+                let responseData = null;
+                let errorMsg = "";
+
+                // 循环尝试所有代理节点
+                for (let i = 0; i < proxies.length; i++) {
+                    try {
+                        const res = await fetch(proxies[i], {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${apiKey}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        try {
+                            responseData = await res.json();
+                        } catch (e) {
+                            responseData = { message: "代理返回非JSON数据格式" };
+                        }
+
+                        if (res.ok) {
+                            success = true;
+                            break; // 只要有一个节点发送成功，立刻退出循环不再重试
+                        } else {
+                            errorMsg = responseData.message || "未知错误";
+                            console.warn(`代理节点 ${i+1} 发送失败:`, errorMsg);
+                        }
+                    } catch (err) {
+                        errorMsg = err.message;
+                        console.warn(`代理节点 ${i+1} 抛出网络异常:`, errorMsg);
+                        // 被浏览器拦截（Failed to fetch），循环自动继续，用下一个节点发
                     }
-                }).catch(err => {
-                    console.error("❌ 网络请求异常:", err);
-                    if (isTest) alert("发生网络错误或代理服务器连接失败：\n" + err.message);
-                });
+                }
+
+                // 恢复测试按钮状态
+                if (isTest && testBtn) {
+                    testBtn.innerText = "✉️ 测试发送邮件";
+                    testBtn.disabled = false;
+                }
+
+                // 最终结果播报
+                if (success) {
+                    console.log("✅ 学习报告已成功自动发送:", responseData);
+                    if (isTest) alert("🎉 邮件发送成功！\n请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\n\nAPI 响应ID: " + responseData.id);
+                } else {
+                    console.error("❌ 学习报告发送失败:", errorMsg);
+                    if (isTest) alert("⚠️ 邮件发送失败！\n已尝试所有备用代理节点，依然被拦截。\n最后错误原因：" + errorMsg);
+                }
             }
         };
 
