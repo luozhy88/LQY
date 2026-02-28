@@ -4,16 +4,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V3.3 (全屏测验极致适配版)
+      版本：V3.4 (智能去重适配版)
       更新内容：
-      1. 测验模式改为“看字找图”，彻底解决断网/弱网下拼音加载失败导致的“空白选项”问题。
-      2. 测验选项区加入 grid-rows-2 强制等高平分，解决横屏下选项被挤出屏幕外的问题。
-      3. 进一步压缩了全屏模式下手机端的 padding 和卡片高度，实现完美 100% 沉浸。
+      1. 动态学习步数：抛弃强制4步逻辑。字有几张图就学几步，没有图只展示1步，拒绝重复。
+      2. 测验选项严格去重：加入 Emoji 去重池（usedEmojis），保证 4 个测验选项绝对互不相同。
+      3. 优化词库兜底策略，遇到超纲生僻字也能完美出题。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v3.3</title>
+    <title>识字小达人 - 一年级语文学习 v3.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -61,13 +61,14 @@
     <div id="app-container" class="w-full h-full max-w-4xl bg-white sm:rounded-3xl card-shadow overflow-hidden relative flex flex-col transition-all duration-300">
         
         <header class="bg-green-400 text-white p-2 sm:p-4 text-center relative z-10 shadow-md shrink-0">
-            <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
-            <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 relative">
+            <!-- 核心修复1：增加 z-20 层级，防止被 h1 标题块遮挡拦截点击 -->
+            <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
+            <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 relative z-10">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-4 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.3</span>
+                <span class="absolute -right-4 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.4</span>
             </h1>
-            <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-80" title="切换全屏">⛶</button>
-            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
+            <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-80" title="切换全屏">⛶</button>
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
         </header>
 
         <!-- 视图1：主页 -->
@@ -76,7 +77,7 @@
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
                     <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
                     <div class="flex items-center gap-2">
-                        <input type="number" id="chars-per-level" value="10" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none focus:border-blue-400" onchange="app.updateGroupSize()">
+                        <input type="number" id="chars-per-level" value="5" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none focus:border-blue-400" onchange="app.updateGroupSize()">
                         <span class="text-sm text-gray-500">字</span>
                     </div>
                 </div>
@@ -130,7 +131,7 @@
                     </div>
                     
                     <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0">
-                        下一张图 (1/4)
+                        下一张图 (1/X)
                     </button>
                 </div>
             </div>
@@ -145,12 +146,11 @@
             
             <h2 id="quiz-prompt" class="text-base sm:text-2xl font-bold text-center text-gray-800 shrink-0 m-0">哪张图是它？</h2>
             
-            <!-- 缩小了字体的盒子，给选项留出更多高度空间 -->
             <div class="bg-white border-4 border-pink-200 rounded-xl sm:rounded-3xl w-16 h-16 sm:w-28 sm:h-28 flex items-center justify-center shadow-md relative shrink-0">
                 <span id="quiz-char" class="font-bold text-gray-800" style="font-size: clamp(2rem, 6vh, 4rem);">火</span>
             </div>
             
-            <!-- 核心修复：强制 grid-rows-2 等分高度，不再被内容撑开 -->
+            <!-- 测验选项网格 -->
             <div id="quiz-options" class="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 w-full mt-2 flex-1 min-h-0 pb-1"></div>
         </div>
     </div>
@@ -358,7 +358,7 @@
 
         initLessons() {
             const unique = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
-            const gs = parseInt(document.getElementById('chars-per-level').value) || 10;
+            const gs = parseInt(document.getElementById('chars-per-level').value) || 5;
             const sel = document.getElementById('lesson-select');
             sel.innerHTML = '';
             for (let i = 0; i < unique.length; i += gs) {
@@ -388,7 +388,13 @@
             document.getElementById('btn-home-back').classList.toggle('hidden', id === 'view-home');
         },
 
-        goHome() { this.switchView('view-home'); },
+        goHome() { 
+            // 核心修复2：返回主页时，立刻停止正在播放的语音
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            this.switchView('view-home'); 
+        },
 
         startFlow() {
             if (!this.parseInput()) return;
@@ -414,6 +420,7 @@
             this.renderLearnCard();
         },
 
+        // --- 核心修改区 1：动态步数，不强行循环展示 ---
         renderLearnCard() {
             const c = this.charsToLearn[this.currentIndex];
             this.currentStep = 0; 
@@ -433,7 +440,8 @@
         },
 
         updateLearnImage(c) {
-            const imgs = charDictionary[c] || ['📝','📖','💡','✨'];
+            // 获取实际存在的图片，如果没有，就用一个笔兜底，不再强行凑 4 张。
+            const imgs = charDictionary[c] || ['📝'];
             const el = document.getElementById('learn-image');
             
             el.classList.remove('slide-in-right');
@@ -443,11 +451,16 @@
         },
 
         updateLearnButtonText() {
+            const c = this.charsToLearn[this.currentIndex];
+            const imgs = charDictionary[c] || ['📝'];
             const btn = document.getElementById('btn-learn-next');
-            if (this.currentStep < 3) { 
-                btn.innerText = `下一张图 (${this.currentStep + 1}/4)`;
+            
+            // 如果还有没有展示完的图
+            if (this.currentStep < imgs.length - 1) { 
+                btn.innerText = `下一张图 (${this.currentStep + 1}/${imgs.length})`;
                 btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0";
             } else { 
+                // 图片看完了（或者本来就只有1张）
                 btn.innerText = "记住了，下一个 ➡️";
                 btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0";
             }
@@ -455,7 +468,9 @@
 
         handleLearnNext() {
             const c = this.charsToLearn[this.currentIndex];
-            if (this.currentStep < 3) {
+            const imgs = charDictionary[c] || ['📝'];
+            
+            if (this.currentStep < imgs.length - 1) {
                 this.currentStep++;
                 this.updateLearnImage(c);
                 this.updateLearnButtonText();
@@ -480,11 +495,11 @@
             this.quizSequence = [...this.charsToLearn].sort(() => Math.random() - 0.5);
             
             this.switchView('view-quiz');
-            // 修改测验文案
             document.getElementById('quiz-prompt').innerText = "哪张图是它？"; 
             this.renderQuizQuestion();
         },
 
+        // --- 核心修改区 2：强制防重发测验选项生成算法 ---
         renderQuizQuestion() {
             if (this.currentIndex >= this.quizSequence.length) {
                 this.checkQuizResult();
@@ -498,27 +513,62 @@
             document.getElementById('quiz-score').innerText = this.score;
             document.getElementById('quiz-progress-text').innerText = `${this.currentIndex+1}/${this.quizSequence.length}`;
 
-            let opts = [target];
-            let dist = [...this.allCharsInSession].filter(c => c !== target).sort(() => Math.random() - 0.5).slice(0, 3);
-            if (dist.length < 3) {
-                const extra = Object.keys(charDictionary).filter(c => c !== target && !dist.includes(c)).sort(() => Math.random() - 0.5).slice(0, 3 - dist.length);
-                dist.push(...extra);
+            // 1. 获取目标答案图片，并加入去重 Set
+            const targetImgs = charDictionary[target] || ['📝'];
+            const targetEmoji = targetImgs[Math.floor(Math.random() * targetImgs.length)];
+            let usedEmojis = new Set([targetEmoji]);
+            
+            let optionsData = [ { emoji: targetEmoji, isTarget: true } ];
+            
+            // 2. 备用兜底图库（防止生僻字不够凑混淆项）
+            const fallbackPool = ['🍎','🚗','🏠','⚽','🐶','🌲','⭐','🎈','🚀','🎁','🔔','伞','🍓','🌻','🐱','🐸'];
+
+            // 辅助函数：找出一个还没用过的全新 Emoji
+            const getDistinctEmoji = (char) => {
+                const imgs = charDictionary[char] || fallbackPool;
+                const shuffled = [...imgs].sort(() => Math.random() - 0.5);
+                for (let img of shuffled) {
+                    if (!usedEmojis.has(img)) return img;
+                }
+                return null;
+            };
+
+            // 3. 收集混淆项（从本关字和总字库中随机挑三个字来找图）
+            let availableChars = [...new Set([...this.allCharsInSession, ...Object.keys(charDictionary)])]
+                                .filter(c => c !== target)
+                                .sort(() => Math.random() - 0.5);
+
+            for (let char of availableChars) {
+                if (optionsData.length >= 4) break;
+                let emoji = getDistinctEmoji(char);
+                if (emoji) {
+                    usedEmojis.add(emoji);
+                    optionsData.push({ emoji: emoji, isTarget: false });
+                }
             }
-            opts = opts.concat(dist).sort(() => Math.random() - 0.5);
+
+            // 极小概率兜底：如果上面都找不到足够的图，强行从备用池捞没见过的图
+            if (optionsData.length < 4) {
+                for (let f of fallbackPool) {
+                    if (optionsData.length >= 4) break;
+                    if (!usedEmojis.has(f)) {
+                        usedEmojis.add(f);
+                        optionsData.push({ emoji: f, isTarget: false });
+                    }
+                }
+            }
+
+            // 打乱最后的 4 个绝对不会重复的选项
+            optionsData = optionsData.sort(() => Math.random() - 0.5);
 
             const container = document.getElementById('quiz-options');
             container.innerHTML = '';
-            opts.forEach(oc => {
+            optionsData.forEach(opt => {
                 const btn = document.createElement('button');
-                // 彻底去掉 min-h，使用 w-full h-full 让网格自行平分剩余空间，避免撑坏父容器
                 btn.className = "bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl w-full h-full flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none overflow-hidden";
-                
-                // 改为图片选项，避免网络造成的拼音获取不到（空白按钮）
-                const imgs = charDictionary[oc] || ['📝','📖','💡','✨'];
-                btn.innerText = imgs[Math.floor(Math.random() * imgs.length)];
-                btn.style.fontSize = "clamp(2rem, 12vh, 4.5rem)"; // 自适应尺寸
-                
-                btn.onclick = () => this.handleQuizAnswer(oc === target, btn, target);
+                btn.innerText = opt.emoji;
+                btn.style.fontSize = "clamp(2rem, 12vh, 4.5rem)"; 
+                btn.onclick = () => this.handleQuizAnswer(opt.isTarget, btn, target);
                 container.appendChild(btn);
             });
 
