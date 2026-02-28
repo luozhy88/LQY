@@ -3,16 +3,17 @@
 <head>
     <!-- 
       ======================================================
-      版本：V1.7 (解决邮件跨域发送问题)
+      版本：V1.8 (支持自定义每关字数)
       更新内容：
-      1. 修复：引入了公共跨域代理 (corsproxy.io)，完美解决纯前端直接调用 Resend API 导致的 CORS 跨域拦截问题 (Failed to fetch)。
-      2. 优化：提升了发送失败或被拦截时的错误弹窗提示，以便于排查问题。
-      3. UI更新：版本号升级为 v1.7。
+      1. 新增：用户可自定义“每关字数”（默认15，最少5个），修改后自动重新划分所有关卡和进度。
+      2. 修复：引入了公共跨域代理 (corsproxy.io)，完美解决纯前端直接调用 Resend API 导致的 CORS 跨域拦截问题 (Failed to fetch)。
+      3. 优化：提升了发送失败或被拦截时的错误弹窗提示，以便于排查问题。
+      4. UI更新：版本号升级为 v1.8。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v1.7</title>
+    <title>识字小达人 - 一年级语文学习 v1.8</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 拼音库 -->
@@ -88,7 +89,7 @@
             
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.7</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.8</span>
             </h1>
             
             <!-- 全局音乐开关 -->
@@ -100,6 +101,16 @@
         <!-- 视图 1：主页/输入页 -->
         <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
             <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
+                
+                <!-- V1.8 新增：自定义每关字数 -->
+                <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
+                    <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="chars-per-level" value="15" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none focus:border-blue-400" onchange="app.updateGroupSize()">
+                        <span class="text-sm text-gray-500">字</span>
+                    </div>
+                </div>
+
                 <!-- 分阶段下拉选择器 -->
                 <div>
                     <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
@@ -112,7 +123,7 @@
                 <div>
                     <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
                     <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
-                    <p class="text-xs text-yellow-600 mt-1">每次 15 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。</p>
+                    <p class="text-xs text-yellow-600 mt-1" id="hint-text">每次 15 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。</p>
                 </div>
             </div>
 
@@ -369,15 +380,31 @@
                 }
             },
 
+            // --- V1.8 新增：响应修改字数 ---
+            updateGroupSize() {
+                let val = parseInt(document.getElementById('chars-per-level').value);
+                if (isNaN(val) || val < 5) val = 5; // 限制最少 5 个字
+                if (val > 100) val = 100; // 限制最多 100 个字
+                document.getElementById('chars-per-level').value = val;
+                
+                // 动态更新提示文字
+                document.getElementById('hint-text').innerText = `每次 ${val} 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。`;
+                
+                this.initLessons(); // 重新生成关卡
+            },
+
             // --- 分阶段分组逻辑 ---
             initLessons() {
                 // 1. 去掉重复的字，确保每个字只学一次
                 const uniqueChars = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
-                const groupSize = 15; // 每关固定 15 个字
+                
+                // 2. 获取用户设置的每关字数
+                const groupSize = parseInt(document.getElementById('chars-per-level').value) || 15; 
+                
                 const selectEl = document.getElementById('lesson-select');
                 selectEl.innerHTML = ''; // 清空下拉框
                 
-                // 2. 按照每组 15 个字进行切分并生成下拉选项
+                // 3. 按照每组自定义字数进行切分并生成下拉选项
                 for (let i = 0; i < uniqueChars.length; i += groupSize) {
                     const charsInGroup = uniqueChars.slice(i, i + groupSize).join('');
                     const option = document.createElement('option');
@@ -387,7 +414,7 @@
                     selectEl.appendChild(option);
                 }
                 
-                // 3. 页面加载时自动填入第一关的字
+                // 4. 页面加载/修改时自动填入第一关的字
                 this.changeLesson();
             },
 
