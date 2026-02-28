@@ -4,16 +4,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V3.0 (智能学习闭环版)
+      版本：V3.1 (横向图文强化版)
       更新内容：
       1. 学习极简交互：单按键“记住了”，自动播放读音。
       2. 学习闭环：学完自动测 -> 测错自动挑出重学 -> 直到全部掌握。
-      3. 依然保留 V2.4 的 CDN 稳定修复与多重邮件发送保障。
+      3. 左右分栏设计：左字右图，右侧固定四次滑动看图强化记忆。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v3.0</title>
+    <title>识字小达人 - 一年级语文学习 v3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -45,6 +45,14 @@
             50% { transform: translateX(10px); }
             75% { transform: translateX(-10px); }
         }
+        
+        /* 新增：滑动进入动画 */
+        .slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes slideInRight {
+            0% { transform: translateX(80px) scale(0.8); opacity: 0; }
+            100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+
         .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -58,8 +66,10 @@
             <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.0</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.1</span>
             </h1>
+            <!-- 新增：全屏切换按钮 -->
+            <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-14 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-80" title="切换全屏">⛶</button>
             <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
         </header>
 
@@ -100,29 +110,40 @@
             </div>
         </div>
 
-        <!-- 视图2：学习模式 -->
-        <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in">
-            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2 relative">
+        <!-- 视图2：学习模式 (横屏图文版) -->
+        <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in relative">
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2 relative shrink-0">
                 <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
                 <div id="learn-title" class="absolute -top-6 left-0 right-0 text-center text-sm font-bold text-blue-600">正在学习新字</div>
             </div>
-            <div class="bg-white border-4 border-blue-200 rounded-3xl w-full py-8 flex flex-col items-center justify-center relative shadow-lg">
-                <div class="text-center cursor-pointer group" onclick="app.playAudio()">
-                    <ruby class="text-[90px] font-bold text-gray-800 leading-none mt-2 group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
+            
+            <!-- 左右分栏的卡片 -->
+            <div class="bg-white border-4 border-blue-200 rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 max-h-[400px]">
+                
+                <!-- 左半部：字与拼音 -->
+                <div class="w-[45%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-4 bg-blue-50/30 cursor-pointer group relative" onclick="app.playAudio()">
+                    <ruby class="text-[75px] sm:text-[85px] font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
                         <span id="learn-char">水</span>
-                        <rt id="learn-pinyin" class="text-[32px] tracking-widest font-sans"></rt>
+                        <rt id="learn-pinyin" class="text-[26px] tracking-widest font-sans"></rt>
                     </ruby>
+                    <div class="absolute bottom-4 flex items-center gap-1 text-[12px] text-blue-400 font-bold opacity-80 bg-white px-2 py-1 rounded-full shadow-sm border border-blue-100">
+                        🔊 点击发音
+                    </div>
                 </div>
-                <div class="text-center mt-4">
-                    <div id="learn-image" class="text-[120px] filter drop-shadow-md select-none transition-transform duration-300 inline-block leading-none">💧</div>
-                    <p class="text-[14px] text-gray-400 mt-4 font-bold opacity-80">👆 点击下方按钮查看更多演示</p>
+                
+                <!-- 右半部：图片与按键 -->
+                <div class="w-[55%] flex flex-col p-4 bg-white relative">
+                    <!-- 图片展示区 -->
+                    <div class="flex-1 flex items-center justify-center overflow-hidden">
+                        <div id="learn-image" class="text-[85px] sm:text-[95px] filter drop-shadow-md select-none inline-block leading-none slide-in-right">💧</div>
+                    </div>
+                    
+                    <!-- 图片下方的唯一按键 -->
+                    <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#4f46e5] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0">
+                        下一张图 (1/4)
+                    </button>
                 </div>
             </div>
-            
-            <!-- 只有一个按键 -->
-            <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#2563eb] active:translate-y-[6px] active:shadow-none tracking-widest">
-                记住了，下一个 ➡️
-            </button>
         </div>
 
         <!-- 视图3：测验模式 -->
@@ -150,7 +171,7 @@
     </div>
 
     <script>
-    // ===================== 背景音乐 (同旧版) =====================
+    // ===================== 背景音乐 =====================
     const sound = {
         ctx: null, bgmInterval: null, isPlaying: false,
         init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
@@ -187,7 +208,7 @@
         stopBGM() { this.isPlaying = false; if (this.bgmInterval) clearInterval(this.bgmInterval); }
     };
 
-    // ===================== 生字库 (同旧版) =====================
+    // ===================== 生字库 =====================
     const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
 
     const charDictionary = {
@@ -211,7 +232,7 @@
         return ""; 
     }
 
-    // ===================== 邮件系统 (同旧版) =====================
+    // ===================== 邮件系统 =====================
     const emailSender = {
         async send(mode, chars, score, seqLen) {
             const charsStr = chars.join('、');
@@ -261,19 +282,19 @@
         }
     };
 
-    // ===================== 主应用逻辑 (重点重构区) =====================
+    // ===================== 主应用逻辑 =====================
     const app = {
-        allCharsInSession: [], // 本次选中的所有字
-        charsToLearn: [],      // 当前阶段需要学习的字（可能是全部，也可能是错字）
-        failedChars: [],       // 记录测验中错过的字
+        allCharsInSession: [], 
+        charsToLearn: [],      
+        failedChars: [],       
         
         currentIndex: 0, 
-        currentImageIndex: 0,
+        currentStep: 0, // 新增：控制当前展示的 4 张图中的哪一步 (0~3)
         score: 0, 
         quizSequence: [], 
         bgmInitialized: false,
-        isReviewMode: false,   // 是否处于复习错字阶段
-        hasCurrentQuestionMistake: false, // 标记当前测验题目是否答错过
+        isReviewMode: false,   
+        hasCurrentQuestionMistake: false, 
 
         init() {
             document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
@@ -291,6 +312,32 @@
             };
             document.addEventListener('click', startAudio);
             document.addEventListener('touchstart', startAudio);
+
+            // 新增：监听全屏状态变化，以更新按钮图标
+            const fsEvents = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+            fsEvents.forEach(evt => document.addEventListener(evt, () => this.updateFullscreenBtn()));
+        },
+
+        // 新增：全屏切换逻辑（兼容各浏览器）
+        toggleFullscreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) requestFullScreen.call(docEl);
+            } else {
+                if (cancelFullScreen) cancelFullScreen.call(doc);
+            }
+        },
+
+        // 新增：更新全屏按钮的图标
+        updateFullscreenBtn() {
+            const btn = document.getElementById('btn-fullscreen');
+            if (!btn) return;
+            const isFull = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            btn.innerText = isFull ? '↙️' : '⛶'; // 全屏时显示收缩图标，非全屏时显示展开图标
         },
 
         toggleBGM() {
@@ -341,25 +388,17 @@
 
         goHome() { this.switchView('view-home'); },
 
-        // ====== 流程控制：启动学习闭环 ======
         startFlow() {
             if (!this.parseInput()) return;
-            
-            // 初始化全局状态
             this.score = 0;
             this.isReviewMode = false;
-            
-            // 启动第一轮学习
             this.startLearningPhase(this.allCharsInSession);
         },
 
-        // ====== 阶段：学习 ======
         startLearningPhase(charArray) {
             this.charsToLearn = charArray;
             this.currentIndex = 0; 
-            this.currentImageIndex = 0;
             
-            // UI 更新
             const titleEl = document.getElementById('learn-title');
             if (this.isReviewMode) {
                 titleEl.innerText = `复习刚才没记住的 ${this.charsToLearn.length} 个字`;
@@ -375,96 +414,91 @@
 
         renderLearnCard() {
             const c = this.charsToLearn[this.currentIndex];
+            this.currentStep = 0; // 重置该字的观看进度 (0~3)
+
             document.getElementById('learn-char').innerText = c;
             document.getElementById('learn-pinyin').innerText = getSafePinyin(c);
             
             this.updateLearnImage(c);
+            this.updateLearnButtonText();
+
             document.getElementById('learn-progress').style.width = `${((this.currentIndex+1)/this.charsToLearn.length)*100}%`;
             
             const card = document.getElementById('view-learn').querySelector('.bg-white');
             card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
             
-            // 自动播放语音 (因为进入此页必有用户交互，所以不会被浏览器拦截)
             setTimeout(() => this.playAudio(), 100);
+        },
 
-            // 更新按钮状态（判断是否还有图）
-            this.updateLearnButtonText();
+        updateLearnImage(c) {
+            // 提供预设 fallback 图，确保至少有循环项
+            const imgs = charDictionary[c] || ['📝','📖','💡','✨'];
+            const el = document.getElementById('learn-image');
+            
+            // 移除动画 class
+            el.classList.remove('slide-in-right');
+            // 触发回流 (Reflow) 以确保动画重新播放
+            void el.offsetWidth; 
+            
+            // 使用取模，无论几张图，都能循环在 4 步内完整展示
+            el.innerText = imgs[this.currentStep % imgs.length];
+            
+            // 添加动画 class
+            el.classList.add('slide-in-right');
         },
 
         updateLearnButtonText() {
-            const c = this.charsToLearn[this.currentIndex];
-            const imgs = charDictionary[c] || ['📝','📖','💡'];
             const btn = document.getElementById('btn-learn-next');
-            if (this.currentImageIndex < imgs.length - 1) {
-                // 如果还有图片没展示完，按钮变成紫色，提示“下一张图”
-                btn.innerText = "下一张图 🖼️";
-                btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#4f46e5] active:translate-y-[6px] active:shadow-none tracking-widest";
-            } else {
-                // 如果图片展示完了，按钮变成蓝色，提示“下一个”
+            if (this.currentStep < 3) { // 前三张图
+                btn.innerText = `下一张图 (${this.currentStep + 1}/4)`;
+                btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#4f46e5] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0";
+            } else { // 第四张图 (最后一张)
                 btn.innerText = "记住了，下一个 ➡️";
-                btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#2563eb] active:translate-y-[6px] active:shadow-none tracking-widest";
+                btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#2563eb] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0";
             }
         },
 
         handleLearnNext() {
             const c = this.charsToLearn[this.currentIndex];
-            const imgs = charDictionary[c] || ['📝','📖','💡'];
             
-            if (this.currentImageIndex < imgs.length - 1) {
-                // 还有图片没展示完，展示下一张图
-                this.currentImageIndex++;
+            if (this.currentStep < 3) {
+                // 如果展示图不到4次，继续下一张图
+                this.currentStep++;
                 this.updateLearnImage(c);
-                
-                // 给图片添加弹跳动画
-                const el = document.getElementById('learn-image');
-                el.style.transform = 'scale(0.8)'; setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
-                
-                this.playAudio();
                 this.updateLearnButtonText();
+                this.playAudio();
             } else {
-                // 这个字的图片已经全展示完了，进入下一个字
+                // 如果图已经看了4次，进入下一个字
                 this.nextChar();
             }
         },
 
-        updateLearnImage(c) {
-            const imgs = charDictionary[c] || ['📝','📖','💡'];
-            this.currentImageIndex = this.currentImageIndex % imgs.length;
-            document.getElementById('learn-image').innerText = imgs[this.currentImageIndex];
-        },
-
-        // 学习阶段点击“下一个”
         nextChar() {
             if (this.currentIndex < this.charsToLearn.length - 1) { 
                 this.currentIndex++; 
-                this.currentImageIndex = 0; 
                 this.renderLearnCard(); 
             } else {
-                // 当前阶段字全看完了，无缝进入测验
                 this.startQuizPhase();
             }
         },
 
-        // ====== 阶段：测验 ======
         startQuizPhase() {
-            this.failedChars = []; // 重置本次测验的错题记录
+            this.failedChars = []; 
             this.currentIndex = 0;
-            // 测验内容就是刚才学的那些字打乱
             this.quizSequence = [...this.charsToLearn].sort(() => Math.random() - 0.5);
             
             this.switchView('view-quiz');
-            document.getElementById('quiz-prompt').innerText = "它的拼音是哪个？"; // 统一使用拼音测试，最稳定
+            document.getElementById('quiz-prompt').innerText = "它的拼音是哪个？"; 
             this.renderQuizQuestion();
         },
 
         renderQuizQuestion() {
             if (this.currentIndex >= this.quizSequence.length) {
-                // 测验结束，检查是否出错
                 this.checkQuizResult();
                 return;
             }
 
-            this.hasCurrentQuestionMistake = false; // 初始化当前题目标记
+            this.hasCurrentQuestionMistake = false; 
 
             const target = this.quizSequence[this.currentIndex];
             document.getElementById('quiz-char').innerText = target;
@@ -472,7 +506,6 @@
             document.getElementById('quiz-progress-text').innerText = `${this.currentIndex+1}/${this.quizSequence.length}`;
 
             let opts = [target];
-            // 从所有字库里挑混淆项
             let dist = [...this.allCharsInSession].filter(c => c !== target).sort(() => Math.random() - 0.5).slice(0, 3);
             if (dist.length < 3) {
                 const extra = Object.keys(charDictionary).filter(c => c !== target && !dist.includes(c)).sort(() => Math.random() - 0.5).slice(0, 3 - dist.length);
@@ -497,13 +530,11 @@
 
         handleQuizAnswer(correct, btn, targetChar) {
             if (correct) {
-                // 只有一次就答对才加分
                 if (!this.hasCurrentQuestionMistake) this.score += 10;
                 
                 btn.classList.add('bg-green-100', 'border-green-500');
                 confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
                 
-                // 锁住所有按钮防连点
                 document.getElementById('quiz-options').querySelectorAll('button').forEach(b => b.disabled = true);
                 
                 setTimeout(() => { 
@@ -513,7 +544,6 @@
             } else {
                 btn.classList.add('shake', 'bg-red-50', 'border-red-400');
                 
-                // 记录错误 (确保每个字只记录一次)
                 if (!this.hasCurrentQuestionMistake) {
                     this.hasCurrentQuestionMistake = true;
                     if (!this.failedChars.includes(targetChar)) {
@@ -529,10 +559,8 @@
             }
         },
 
-        // ====== 检查测验结果，决定是否形成闭环 ======
         checkQuizResult() {
             if (this.failedChars.length > 0) {
-                // 有错字，提示重学
                 this.showModal(
                     "🤔 还要加油哦", 
                     `有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个字刚才没认出来，<br>我们把它们再学一遍吧！`, 
@@ -544,7 +572,6 @@
                     }
                 );
             } else {
-                // 全对，完美通关！
                 this.showModal(
                     "太棒了！", 
                     `所有的字你都完全掌握啦！<br>本次总得分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！`, 
@@ -556,7 +583,6 @@
                     }
                 );
                 
-                // 撒花特效
                 const end = Date.now() + 3000;
                 (function frame() {
                     confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
@@ -579,7 +605,6 @@
             }
         },
 
-        // 自定义弹窗
         showModal(title, msgHtml, icon, btnText, callback) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-msg').innerHTML = msgHtml;
@@ -595,7 +620,6 @@
             document.getElementById('modal-msg-box').classList.remove('hidden');
         },
 
-        // ---- 邮件测试与发送 ----
         showEmailStatus(type, msg) {
             const el = document.getElementById('email-status');
             el.className = 'text-sm font-bold text-center py-2 px-3 rounded-xl whitespace-pre-wrap';
