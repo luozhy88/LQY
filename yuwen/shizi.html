@@ -90,10 +90,21 @@
 
         <!-- 视图 1：主页/输入页 -->
         <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
-            <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300">
-                <label class="block text-lg font-bold text-yellow-800 mb-2">✏️ 输入要学习的字：</label>
-                <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3">日月水火山田石土牛羊马春风雨云</textarea>
-                <p class="text-xs text-yellow-600 mt-2">家长提示：请在此输入一类字，程序会自动识别拼音并匹配图片。</p>
+            <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
+                <!-- 新增：分阶段下拉选择器 -->
+                <div>
+                    <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
+                    <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()">
+                        <!-- 选项通过 JS 自动生成 -->
+                    </select>
+                </div>
+                
+                <!-- 修改：缩小了输入框，提示文本更友好 -->
+                <div>
+                    <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
+                    <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
+                    <p class="text-xs text-yellow-600 mt-1">每次 15 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。</p>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 gap-4 mt-auto">
@@ -129,7 +140,7 @@
                 
                 <!-- 意思图片 (点击换图) -->
                 <div class="text-center cursor-pointer mt-4 group" onclick="app.nextImage()">
-                    <div id="learn-image" class="text-[260px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">
+                    <div id="learn-image" class="text-[180px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">
                         💧
                     </div>
                     <p class="text-[12px] text-yellow-500 mt-4 font-bold opacity-80">👆 点击图片听读音并换图</p>
@@ -181,53 +192,111 @@
         </div>
     </div>
 
-    <!-- 全局背景音乐 (增加 autoplay 尝试自动播放，无版权轻音乐) -->
-    <audio id="app-bgm" loop autoplay preload="auto">
-        <source src="https://assets.mixkit.co/music/preview/mixkit-feeling-happy-5.mp3" type="audio/mpeg">
-    </audio>
-
     <script>
-        // 内置一年级常用字字典（支持多图，代表同一个意思的不同展现方式）
-        const charDictionary = {
-            '日': ['☀️', '🌞', '🌅', '🌇'],
-            '月': ['🌙', '🌛', '🌕', '🌗'],
-            '水': ['💧', '🌊', '💦', '🚰'],
-            '火': ['🔥', '🧨', '🌋', '⛺'],
-            '山': ['⛰️', '🏔️', '🗻', '🏞️'],
-            '石': ['🪨', '🗿', '💎'],
-            '田': ['🌾', '🚜', '🟩'],
-            '土': ['🪴', '🧱', '🤎'],
-            '牛': ['🐂', '🐄', '🐃', '🥛'],
-            '羊': ['🐏', '🐑', '🐐'],
-            '马': ['🐎', '🎠', '🐴'],
-            '春': ['🌸', '🌱', '🪁', '🌷'],
-            '夏': ['🍉', '🍦', '☀️', '🦟'],
-            '秋': ['🍁', '🍂', '🌾'],
-            '冬': ['⛄', '❄️', '🧣'],
-            '风': ['🌬️', '🌪️', '🪁'],
-            '雨': ['🌧️', '☔', '🌂'],
-            '云': ['☁️', '🌥️', '⛈️'],
-            '雪': ['❄️', '⛄', '🏔️'],
-            '天': ['🌤️', '🌌', '🌈'],
-            '地': ['🌍', '🌱', '🛣️'],
-            '人': ['🚶', '🧍', '👨‍👩‍👦'],
-            '口': ['👄', '🗣️', '🦷'],
-            '目': ['👁️', '👀', '👓'],
-            '耳': ['👂', '🦻', '🎧'],
-            '手': ['🖐️', '🤝', '👋', '✍️'],
-            '足': ['🦶', '👣', '🦵', '⚽'],
-            '大': ['🐘', '🐳', '🏢'],
-            '小': ['🐜', '🐁', '🦠'],
-            '多': ['💯', '📚', '💰'],
-            '少': ['🤏', '💧', '🪙'],
-            '男': ['👦', '👨', '🚹'],
-            '女': ['👧', '👩', '🚺'],
-            '上': ['⬆️', '👆', '🛫'],
-            '下': ['⬇️', '👇', '🛬']
+        // 背景音乐合成器 (Web Audio API)，彻底解决浏览器拦截外部音频的问题
+        const sound = {
+            ctx: null,
+            bgmInterval: null,
+            isPlaying: false,
+
+            init: function() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+
+            playBGM: function() {
+                if (!this.ctx) this.init();
+                this.stopBGM();
+
+                this.isPlaying = true;
+                const bpm = 120;
+                const beatDuration = 60 / bpm;
+                let step = 0;
+
+                // 欢快的轻音乐旋律 (利用代码自动弹奏)
+                const melodyPattern = [
+                    { note: 74, dur: 0.5 }, { note: 78, dur: 0.5 }, { note: 81, dur: 0.5 }, { note: 74, dur: 0.5 },
+                    { note: 69, dur: 0.5 }, { note: 73, dur: 0.5 }, { note: 76, dur: 0.5 }, { note: 69, dur: 0.5 },
+                    { note: 71, dur: 0.5 }, { note: 74, dur: 0.5 }, { note: 78, dur: 0.5 }, { note: 71, dur: 0.5 },
+                    { note: 67, dur: 0.5 }, { note: 71, dur: 0.5 }, { note: 74, dur: 0.5 }, { note: 67, dur: 0.5 },
+                ];
+
+                this.bgmInterval = setInterval(() => {
+                    if(this.ctx.state !== 'running') return;
+                    
+                    const noteData = melodyPattern[step % melodyPattern.length];
+                    const freq = 440 * Math.pow(2, (noteData.note - 69) / 12);
+                    
+                    this.playPianoNote(freq, noteData.dur * beatDuration);
+                    
+                    if (step % 4 === 0) {
+                        const bassFreq = freq / 4; 
+                        this.playPianoNote(bassFreq, 1.0, 0.05); 
+                    }
+
+                    step++;
+                }, beatDuration * 1000 * 0.5); 
+            },
+
+            playPianoNote: function(freq, duration, volume = 0.03) { // 音量调小不影响文字发音
+                const osc = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator(); 
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc2.type = 'triangle'; 
+                
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                osc2.frequency.setValueAtTime(freq * 2, this.ctx.currentTime); 
+                
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + 0.02); 
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration + 0.5); 
+                
+                osc.connect(gain);
+                const gain2 = this.ctx.createGain();
+                gain2.gain.value = 0.3; 
+                osc2.connect(gain2);
+                gain2.connect(gain);
+
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc2.start();
+                osc.stop(this.ctx.currentTime + duration + 1);
+                osc2.stop(this.ctx.currentTime + duration + 1);
+            },
+
+            stopBGM: function() {
+                this.isPlaying = false;
+                if(this.bgmInterval) clearInterval(this.bgmInterval);
+            }
         };
 
-        // 通用兜底图标库（如果输入的字不在字典里，随机用这些）
-        const fallbackIcons = ['🌟', '✨', '🎈', '🎉', '🍎', '🧸', '🎨', '🚀', '🌈', '🍭'];
+        // 保存一年级下册所有的大纲生字
+        const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
+
+        // 内置一年级常用字字典（全面扩充，严格保证映射准确，不再随机分配）
+        const charDictionary = {
+            // 自然现象/事物
+            '日': ['☀️', '🌞', '🌅'], '月': ['🌙', '🌛', '🌕'], '水': ['💧', '🌊', '💦'], '火': ['🔥', '🌋'], '山': ['⛰️', '🏔️'], '石': ['🪨', '💎'], '田': ['🌾', '🚜'], '土': ['🪴', '🧱'], '云': ['☁️', '🌥️'], '雨': ['🌧️', '☔'], '风': ['🌬️', '🍃'], '雪': ['❄️', '⛄'], '雷': ['⚡', '🌩️'], '电': ['⚡', '🔌'], '冰': ['🧊', '🍦'], '霜': ['❄️', '🧊'], '天': ['🌤️', '🌌'], '地': ['🌍', '🌱'], '星': ['⭐', '🌟'], '光': ['💡', '✨'], '虹': ['🌈'], '池': ['🪷', '⛲'], '泉': ['⛲', '💦'], '江': ['🏞️', '🌊'], '河': ['🏞️', '🌊'], '海': ['🌊', '🏖️'],
+            // 动植物
+            '牛': ['🐂', '🐄'], '羊': ['🐏', '🐑'], '马': ['🐎', '🐴'], '鱼': ['🐟', '🐠'], '鸟': ['🐦', '🕊️'], '虫': ['🐛', '🦋'], '象': ['🐘'], '蚂': ['🐜'], '蚁': ['🐜'], '蛛': ['🕷️'], '蛙': ['🐸'], '狗': ['🐶', '🐕'], '猫': ['🐱', '🐈'], '猪': ['🐷', '🐖'], '树': ['🌳', '🌲'], '草': ['🌿', '🌱'], '花': ['🌺', '🌻', '🌸'], '叶': ['🍃', '🍂'], '瓜': ['🍉', '🍈'], '果': ['🍎', '🍇'], '米': ['🍚', '🌾'], '豆': ['🫘', '🌱'], '萍': ['🪷', '🍃'],
+            // 季节/时间
+            '春': ['🌸', '🌱'], '夏': ['🍉', '☀️'], '秋': ['🍁', '🍂'], '冬': ['⛄', '❄️'], '年': ['📅', '🧨'], '时': ['⏰', '⌚'], '钟': ['⏰', '🕰️'], '晚': ['🌙', '🌃'], '夜': ['🌙', '🌃'], '晨': ['🌅', '早'], '夕': ['🌇', '晚'], '午': ['🕛', '☀️'],
+            // 人物/身体
+            '人': ['🚶', '🧍'], '男': ['👦', '👨'], '女': ['👧', '👩'], '爸': ['👨', '👔'], '妈': ['👩', '👗'], '哥': ['👦', '🧢'], '姐': ['👧', '🎀'], '弟': ['👶', '🍼'], '妹': ['👧', '🧸'], '我': ['🙋', '🧍'], '你': ['👉', '🧍'], '他': ['👦', '🧍'], '她': ['👧', '🧍'], '头': ['👤', '🗣️'], '口': ['👄', '🗣️'], '目': ['👁️', '👀'], '眼': ['👁️', '👀'], '睛': ['👁️', '👀'], '耳': ['👂', '🎧'], '手': ['🖐️', '👋'], '足': ['🦶', '🦵'], '脚': ['🦶', '👟'], '腿': ['🦵', '👖'], '身': ['🧍', '👤'], '体': ['💪', '🧍'], '鼻': ['👃'], '嘴': ['👄'], '臂': ['💪'], '肚': ['🤰', '腹'], '血': ['🩸', '💉'], '肉': ['🥩', '🍗'],
+            // 动作
+            '飞': ['🦅', '✈️'], '走': ['🚶', '👣'], '跑': ['🏃', '💨'], '跳': ['🤸', '🦘'], '爬': ['🦎', '🧗'], '游': ['🏊', '🐟'], '吃': ['🍔', '😋'], '喝': ['🥤', '🥛'], '咬': ['🦷', '🍎'], '叫': ['🗣️', '📣'], '说': ['💬', '🗣️'], '语': ['💬', '🗣️'], '讲': ['👨‍🏫', '💬'], '听': ['👂', '🎧'], '看': ['👀', '👁️'], '笑': ['😂', '😊'], '哭': ['😭', '😢'], '打': ['👊', '🥊'], '拍': ['👏', '🏓'], '拔': ['🥕', '💪'], '捉': ['🦋', '🤲'], '洗': ['🧼', '🚿'], '找': ['🔍', '👀'], '吹': ['🌬️', '😗'], '唱': ['🎤', '🎵'], '做': ['🛠️', '🎨'], '玩': ['🎮', '🧸'], '睡': ['😴', '🛌'], '坐': ['🪑', '🧘'], '立': ['🧍', '🕴️'], '入': ['🚪', '⬇️'], '出': ['🚪', '⬆️'], '开': ['🔓', '📖'], '关': ['🔒', '🚪'], '放': ['👐', '📦'], '浇': ['🚿', '🌻'], '提': ['🛍️', '👜'], '挑': ['🦯', '⚖️'], '拿': ['🤲', '🎁'], '落': ['🍂', '⬇️'], '降': ['⬇️', '🪂'],
+            // 物品/建筑
+            '书': ['📚', '📖'], '笔': ['✏️', '🖊️'], '纸': ['📄', '📜'], '车': ['🚗', '🚲'], '机': ['✈️', '📱'], '船': ['⛵', '🚢'], '床': ['🛏️', '🛋️'], '房': ['🏠', '🏢'], '家': ['🏠', '👨‍👩‍👦'], '门': ['🚪', '⛩️'], '窗': ['🪟'], '网': ['🕸️', '🥅'], '球': ['⚽', '🏀'], '裙': ['👗', '👘'], '衣': ['👕', '🧥'], '伞': ['☔', '🌂'], '包': ['🎒', '👜'], '面': ['🍜', '🍞'], '饭': ['🍚', '🍱'], '药': ['💊', '💉'], '镜': ['🪞', '👓'], '铅': ['✏️'],
+            // 颜色/形容词/方位
+            '红': ['🍎', '🔴'], '黄': ['🍋', '🟡'], '蓝': ['🐳', '🔵'], '绿': ['🍏', '🟢'], '白': ['☁️', '⚪'], '黑': ['🎱', '⚫'], '大': ['🐘', '🏢'], '小': ['🐜', '🐁'], '多': ['💯', '📚'], '少': ['🤏', '💧'], '高': ['⛰️', '🦒'], '低': ['⬇️', '👇'], '长': ['📏', '🦒'], '短': ['🩳', '🐛'], '圆': ['⭕', '🌕'], '方': ['🟩', '⬛'], '尖': ['🗡️', '📍'], '快': ['🚀', '🐆'], '慢': ['🐢', '🐌'], '远': ['🔭', '🛣️'], '近': ['🔍', '📍'], '明': ['💡', '☀️'], '暗': ['🌑', '🔦'], '上': ['⬆️', '👆'], '下': ['⬇️', '👇'], '左': ['⬅️', '👈'], '右': ['➡️', '👉'], '前': ['⬆️', '🚶'], '后': ['⬇️', '🚶'], '里': ['📦', '🏠'], '外': ['🏕️', '🚪'], '宽': ['↔️', '🛣️'],
+            // 抽象/概念/代词/助词 (用符号或相关意象准确表达)
+            '一': ['1️⃣', '☝️'], '二': ['2️⃣', '✌️'], '三': ['3️⃣', '🤟'], '四': ['4️⃣'], '五': ['5️⃣', '🖐️'], '六': ['6️⃣', '🤙'], '七': ['7️⃣'], '八': ['8️⃣'], '九': ['9️⃣'], '十': ['🔟', '➕'], '百': ['💯'], '千': ['1️⃣0️⃣0️⃣0️⃣'], '万': ['🌌', '✨'], '半': ['🌗', '🍕'], '心': ['❤️', '💖'], '气': ['☁️', '💨'], '音': ['🎵', '🎶'], '乐': ['🎵', '😄'], '病': ['🤒', '🏥'], '医': ['👨‍⚕️', '🏥'], '乡': ['🏡', '🌾'], '国': ['🇨🇳', '🗺️'], '王': ['👑'], '字': ['🔤', '✍️'], '词': ['🔠', '📖'], '句': ['📝', '💬'], '双': ['🥢', '♊'], '片': ['🧩', '🎫'], '条': ['〰️', '🥖'], '块': ['🧱', '🧊'], '朵': ['☁️', '🌸'], '座': ['⛰️', '🏛️'], '本': ['📖', '📚'], '册': ['📚', '📖'], '个': ['👤', '🍎'], '同': ['👯', '🤝'], '和': ['➕', '🤝'], '的': ['🎯', '✅'], '么': ['❓'], '什': ['❓'], '吗': ['❓'], '呢': ['❓'], '吧': ['💬', '🍵'], '呀': ['😮', '💬'], '啊': ['😲', '💬'], '谁': ['👤', '❓'], '这': ['👇', '👉'], '那': ['👉', '远'],
+            // 情绪
+            '喜': ['😄', '🥰'], '欢': ['🎉', '😊'], '怒': ['😡', '😤'], '哀': ['😭', '🥀'], '怕': ['😨', '👻'], '惊': ['😲', '😱'], '急': ['😰', '🏃']
+        };
 
         const { pinyin } = pinyinPro; // 引入 pinyin-pro 库
 
@@ -239,37 +308,21 @@
             score: 0,
             
             // 全局背景音乐状态
-            isBgmPlaying: false,
             bgmInitialized: false,
             
             // 初始化
             init() {
                 document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
                 
-                const bgm = document.getElementById('app-bgm');
-                bgm.volume = 0.15; // 音量调低为 15%，作为轻柔背景音，不盖过电脑语音读字的声音
-                
-                // 尝试直接自动播放音乐
-                const playPromise = bgm.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        // 浏览器允许自动播放
-                        this.bgmInitialized = true;
-                        this.isBgmPlaying = true;
-                        document.getElementById('btn-bgm').innerText = '🎵';
-                        document.getElementById('btn-bgm').classList.remove('opacity-50');
-                    }).catch(error => {
-                        // 浏览器限制自动播放（常见情况），等待用户点击页面任意位置
-                        console.log('自动播放受限，等待用户点击屏幕...');
-                    });
-                }
-                
-                // 监听第一次用户交互，以绕过浏览器自动播放限制的兜底方案
+                // 初始化分阶段课文数据
+                this.initLessons();
+
+                // 监听第一次用户交互，顺畅开启合成音乐
                 const startAudioOnInteraction = () => {
                     if (!this.bgmInitialized) {
                         this.bgmInitialized = true;
-                        this.isBgmPlaying = true;
-                        bgm.play().catch(e => console.log('交互后播放失败:', e));
+                        sound.init(); // 初始化音频上下文
+                        sound.playBGM(); // 开始播放程序合成的音乐
                         
                         document.getElementById('btn-bgm').innerText = '🎵';
                         document.getElementById('btn-bgm').classList.remove('opacity-50');
@@ -286,21 +339,46 @@
 
             // 背景音乐切换
             toggleBGM() {
-                this.bgmInitialized = true; // 标记已交互，防止上面的自动播放冲突
-                this.isBgmPlaying = !this.isBgmPlaying;
-                const bgm = document.getElementById('app-bgm');
+                this.bgmInitialized = true; // 标记已交互
                 const btn = document.getElementById('btn-bgm');
                 
-                if (this.isBgmPlaying) {
-                    bgm.volume = 0.15;
-                    bgm.play().catch(e => console.log(e));
+                if (!sound.isPlaying) {
+                    sound.playBGM();
                     btn.innerText = '🎵';
                     btn.classList.remove('opacity-50');
                 } else {
-                    bgm.pause();
+                    sound.stopBGM();
                     btn.innerText = '🔇';
                     btn.classList.add('opacity-50');
                 }
+            },
+
+            // --- 新增：分阶段分组逻辑 ---
+            initLessons() {
+                // 1. 去掉重复的字，确保每个字只学一次
+                const uniqueChars = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
+                const groupSize = 15; // 每关固定 15 个字
+                const selectEl = document.getElementById('lesson-select');
+                selectEl.innerHTML = ''; // 清空下拉框
+                
+                // 2. 按照每组 15 个字进行切分并生成下拉选项
+                for (let i = 0; i < uniqueChars.length; i += groupSize) {
+                    const charsInGroup = uniqueChars.slice(i, i + groupSize).join('');
+                    const option = document.createElement('option');
+                    option.value = charsInGroup;
+                    const endNum = Math.min(i + groupSize, uniqueChars.length);
+                    option.innerText = `第 ${Math.floor(i / groupSize) + 1} 关 (进度 ${i + 1}~${endNum} 字)`;
+                    selectEl.appendChild(option);
+                }
+                
+                // 3. 页面加载时自动填入第一关的字
+                this.changeLesson();
+            },
+
+            // 当下拉菜单切换时，更新文本框内容
+            changeLesson() {
+                const selectEl = document.getElementById('lesson-select');
+                document.getElementById('input-chars').value = selectEl.value;
             },
 
             // 解析用户输入
@@ -376,9 +454,8 @@
             updateLearnImage(char) {
                 let images = charDictionary[char];
                 if (!images) {
-                    // 如果字典里没有，分配一个兜底图标 (根据字编码固定随机，保证每次同一个字图标一样)
-                    const code = char.charCodeAt(0);
-                    images = [fallbackIcons[code % fallbackIcons.length]];
+                    // 彻底移除随机图标兜底。如果字典里没有，显示通用的“文字”图标，避免产生错误的图片映射
+                    images = ['📝', '📖', '🔤'];
                 }
                 
                 // 确保图片索引不越界
@@ -452,19 +529,23 @@
             startQuiz(type) {
                 if (!this.parseInput()) return;
                 
-                // 如果字数太少，没法生成4个选项，进行提示
-                if (this.chars.length < 4) {
-                    // 自动从预设里借几个字来凑数
-                    const extras = ['日', '月', '水', '火'].filter(c => !this.chars.includes(c));
-                    this.chars.push(...extras.slice(0, 4 - this.chars.length));
+                // 【核心修复1】如果选择“看字找图”，严格过滤出字典里有明确图片的字，避免用抽象符号去出题
+                let availableChars = [...this.chars];
+                if (type === 'image') {
+                    availableChars = availableChars.filter(c => charDictionary[c]);
+                    if (availableChars.length < 4) {
+                        alert("你输入的字中，能找到准确图片的具体事物太少啦（至少需要4个）。我先带你玩“看字找音”吧！");
+                        this.startQuiz('pinyin');
+                        return;
+                    }
                 }
 
                 this.quizType = type;
                 this.currentIndex = 0;
                 this.score = 0;
                 
-                // 打乱题目顺序
-                this.quizSequence = [...this.chars].sort(() => Math.random() - 0.5);
+                // 打乱题目顺序 (使用过滤后的可用字集)
+                this.quizSequence = [...availableChars].sort(() => Math.random() - 0.5);
                 
                 this.switchView('view-quiz');
                 
@@ -479,7 +560,8 @@
 
             renderQuizQuestion() {
                 if (this.currentIndex >= this.quizSequence.length) {
-                    this.showSuccess(`太棒了！你答对了 ${this.score} 道题！`);
+                    // 【核心修复2】修复了“做了15道题说做了150道题”的文案逻辑错误
+                    this.showSuccess(`太棒了！共完成 ${this.quizSequence.length} 道题，获得 ${this.score} 分！`);
                     return;
                 }
 
@@ -497,7 +579,8 @@
                 
                 // 如果不够3个干扰项（比如总字数少），从字典里补
                 if (distractors.length < 3) {
-                    const extraDict = Object.keys(charDictionary).filter(c => c !== targetChar && !distractors.includes(c));
+                    // 对于找图游戏，补充的干扰项也必须是字典里有图片的
+                    let extraDict = Object.keys(charDictionary).filter(c => c !== targetChar && !distractors.includes(c));
                     const extras = extraDict.sort(() => Math.random() - 0.5).slice(0, 3 - distractors.length);
                     distractors.push(...extras);
                 }
@@ -511,14 +594,16 @@
 
                 options.forEach(optChar => {
                     const btn = document.createElement('button');
-                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[60px] flex items-center justify-center shadow-sm hover:border-pink-400 hover:shadow-md transition-all active:scale-95";
+                    // 移除了 hover 的彩色边框，防止触摸屏点击后颜色残留；加上 focus:outline-none 禁用浏览器默认高亮
+                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[60px] flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
                     
                     // 根据测验类型显示不同内容
                     if (this.quizType === 'image') {
-                        let imgs = charDictionary[optChar] || [fallbackIcons[optChar.charCodeAt(0) % fallbackIcons.length]];
+                        // 【严格映射】只从字典取真实含义图片，不再使用随机兜底图标
+                        let imgs = charDictionary[optChar] || ['📝'];
                         btn.innerText = imgs[Math.floor(Math.random() * imgs.length)]; // 随机取该字的一张图
                     } else {
-                        btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:border-purple-400 hover:shadow-md transition-all active:scale-95";
+                        btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
                         btn.innerText = pinyin(optChar, { toneType: 'symbol' });
                     }
 
