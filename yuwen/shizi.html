@@ -4,16 +4,17 @@
 <head>
     <!-- 
       ======================================================
-      版本：V3.1 (横向图文强化版)
+      版本：V3.2 (完美全屏自适应版)
       更新内容：
-      1. 学习极简交互：单按键“记住了”，自动播放读音。
-      2. 学习闭环：学完自动测 -> 测错自动挑出重学 -> 直到全部掌握。
-      3. 左右分栏设计：左字右图，右侧固定四次滑动看图强化记忆。
+      1. 彻底解决手机端（特别是横屏）全屏后的溢出滚动问题。
+      2. 移除写死的高度与 padding，改用 100dvh 与 flex-1 min-h-0 弹性收缩。
+      3. 字体和图片采用 clamp() 视口比例缩放，屏幕再小也能一屏全显不滚动。
+      4. 全屏时自动去除外部留白与圆角，沉浸感拉满。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v3.1</title>
+    <title>识字小达人 - 一年级语文学习 v3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -29,9 +30,8 @@
         ruby { ruby-align: center; }
         rt {
             font-family: Arial, sans-serif;
-            font-size: 0.5em;
             color: #ef4444;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
         .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn {
@@ -46,7 +46,6 @@
             75% { transform: translateX(-10px); }
         }
         
-        /* 新增：滑动进入动画 */
         .slide-in-right { animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes slideInRight {
             0% { transform: translateX(80px) scale(0.8); opacity: 0; }
@@ -58,23 +57,25 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4 text-gray-800">
+<!-- 使用 h-[100dvh] 锁定视口真实高度，overflow-hidden 杜绝外层滚动 -->
+<body id="app-body" class="h-[100dvh] w-full flex flex-col items-center justify-center sm:p-4 text-gray-800 overflow-hidden transition-all duration-300">
 
-    <div id="app-container" class="w-full max-w-md bg-white rounded-3xl card-shadow overflow-hidden relative min-h-[600px] flex flex-col">
+    <!-- 移除了 min-h-[600px]，换用 h-full 自动填充 -->
+    <div id="app-container" class="w-full h-full max-w-4xl bg-white sm:rounded-3xl card-shadow overflow-hidden relative flex flex-col transition-all duration-300">
         
-        <header class="bg-green-400 text-white p-4 text-center relative z-10 shadow-md rounded-b-2xl">
-            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
-            <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
+        <!-- shrink-0 保证头部不会被压缩 -->
+        <header class="bg-green-400 text-white p-3 sm:p-4 text-center relative z-10 shadow-md shrink-0">
+            <button id="btn-home-back" class="hidden absolute left-3 top-3 sm:left-4 sm:top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
+            <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.1</span>
+                <span class="absolute -right-4 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.2</span>
             </h1>
-            <!-- 新增：全屏切换按钮 -->
-            <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-14 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-80" title="切换全屏">⛶</button>
-            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
+            <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-3 sm:top-4 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-80" title="切换全屏">⛶</button>
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-3 sm:top-4 text-lg sm:text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
         </header>
 
         <!-- 视图1：主页 -->
-        <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
+        <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 overflow-y-auto no-scrollbar bounce-in">
             <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
                     <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
@@ -87,86 +88,93 @@
                     <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
                     <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()"></select>
                 </div>
-                <div>
+                <div class="flex-1 flex flex-col">
                     <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
-                    <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
+                    <textarea id="input-chars" class="w-full flex-1 min-h-[80px] p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="2"></textarea>
                     <p class="text-xs text-yellow-600 mt-1" id="hint-text">自动模式：学完立即测试，错字反复学，直到全对！</p>
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 gap-4 mt-auto">
-                <button onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
+            <div class="grid grid-cols-1 gap-4 mt-auto shrink-0">
+                <button onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl sm:text-2xl font-bold py-4 sm:py-5 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
                     🚀 开始闯关
                 </button>
 
-                <!-- 邮件测试区域 -->
-                <div class="bg-gray-50 rounded-2xl border border-gray-200 p-3 flex flex-col gap-2 mt-4">
-                    <button id="btn-test-email" onclick="app.testEmail()" class="bg-gray-500 hover:bg-gray-600 text-white text-base font-bold py-2 rounded-xl shadow-[0_4px_0_#374151] active:shadow-[0_0px_0_#374151] active:translate-y-[4px] transition-all">
+                <div class="bg-gray-50 rounded-2xl border border-gray-200 p-2 sm:p-3 flex flex-col gap-2">
+                    <button id="btn-test-email" onclick="app.testEmail()" class="bg-gray-500 hover:bg-gray-600 text-white text-sm sm:text-base font-bold py-2 rounded-xl shadow-[0_4px_0_#374151] active:shadow-[0_0px_0_#374151] active:translate-y-[4px] transition-all">
                         ✉️ 测试发送邮件
                     </button>
-                    <!-- 邮件状态显示条 -->
-                    <div id="email-status" class="hidden text-sm font-bold text-center py-2 px-3 rounded-xl"></div>
+                    <div id="email-status" class="hidden text-xs sm:text-sm font-bold text-center py-2 px-3 rounded-xl"></div>
                 </div>
             </div>
         </div>
 
-        <!-- 视图2：学习模式 (横屏图文版) -->
-        <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in relative">
-            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2 relative shrink-0">
-                <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-                <div id="learn-title" class="absolute -top-6 left-0 right-0 text-center text-sm font-bold text-blue-600">正在学习新字</div>
+        <!-- 视图2：学习模式 (全屏自适应版) -->
+        <!-- 添加 min-h-0 以允许 flex 子元素在空间不足时收缩，防止溢出 -->
+        <div id="view-learn" class="hidden flex-1 p-3 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-6 bounce-in relative min-h-0">
+            
+            <!-- 进度条区域 shrink-0 防止被压缩 -->
+            <div class="w-full bg-gray-200 rounded-full h-2 mb-1 sm:mb-2 relative shrink-0 mt-4 sm:mt-0">
+                <div id="learn-progress" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="learn-title" class="absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600">正在学习新字</div>
             </div>
             
-            <!-- 左右分栏的卡片 -->
-            <div class="bg-white border-4 border-blue-200 rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 max-h-[400px]">
+            <!-- 左右分栏的卡片：flex-1 和 min-h-0 是关键，让它自动适应剩余高度 -->
+            <div class="bg-white border-4 border-blue-200 rounded-2xl sm:rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 min-h-0">
                 
                 <!-- 左半部：字与拼音 -->
-                <div class="w-[45%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-4 bg-blue-50/30 cursor-pointer group relative" onclick="app.playAudio()">
-                    <ruby class="text-[75px] sm:text-[85px] font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
+                <div class="w-[45%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-2 sm:p-4 bg-blue-50/30 cursor-pointer group relative min-h-0" onclick="app.playAudio()">
+                    <!-- 使用 clamp 视口比例缩放字体，防止在很扁的屏幕中溢出 -->
+                    <ruby class="font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors inline-block group-active:scale-95" style="font-size: clamp(3rem, 12vh, 5.5rem);">
                         <span id="learn-char">水</span>
-                        <rt id="learn-pinyin" class="text-[26px] tracking-widest font-sans"></rt>
+                        <rt id="learn-pinyin" class="tracking-widest font-sans" style="font-size: clamp(1.2rem, 4vh, 2.5rem);"></rt>
                     </ruby>
-                    <div class="absolute bottom-4 flex items-center gap-1 text-[12px] text-blue-400 font-bold opacity-80 bg-white px-2 py-1 rounded-full shadow-sm border border-blue-100">
+                    <div class="absolute bottom-2 sm:bottom-4 flex items-center gap-1 text-[10px] sm:text-[12px] text-blue-400 font-bold opacity-80 bg-white px-2 py-1 rounded-full shadow-sm border border-blue-100">
                         🔊 点击发音
                     </div>
                 </div>
                 
                 <!-- 右半部：图片与按键 -->
-                <div class="w-[55%] flex flex-col p-4 bg-white relative">
-                    <!-- 图片展示区 -->
-                    <div class="flex-1 flex items-center justify-center overflow-hidden">
-                        <div id="learn-image" class="text-[85px] sm:text-[95px] filter drop-shadow-md select-none inline-block leading-none slide-in-right">💧</div>
+                <div class="w-[55%] flex flex-col p-2 sm:p-4 bg-white relative min-h-0">
+                    <!-- 图片展示区 min-h-0 允许弹性压缩 -->
+                    <div class="flex-1 flex items-center justify-center overflow-hidden min-h-0">
+                        <!-- 使用 clamp 让 Emoji 图片随屏幕高度自动变大变小 -->
+                        <div id="learn-image" class="filter drop-shadow-md select-none inline-block leading-none slide-in-right" style="font-size: clamp(4rem, 18vh, 7rem);">💧</div>
                     </div>
                     
-                    <!-- 图片下方的唯一按键 -->
-                    <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#4f46e5] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0">
+                    <!-- 图片下方的唯一按键 shrink-0 保持固定高度 -->
+                    <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0">
                         下一张图 (1/4)
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- 视图3：测验模式 -->
-        <div id="view-quiz" class="hidden flex-1 p-6 flex flex-col items-center gap-6 bounce-in relative">
-            <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-2">
+        <!-- 视图3：测验模式 (全屏自适应版) -->
+        <div id="view-quiz" class="hidden flex-1 p-3 sm:p-6 flex flex-col items-center gap-2 sm:gap-6 bounce-in relative min-h-0">
+            <div class="w-full flex justify-between items-center text-sm sm:text-lg font-bold text-gray-600 shrink-0">
                 <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/10</span></div>
                 <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
             </div>
-            <h2 id="quiz-prompt" class="text-2xl font-bold text-center text-gray-800 mt-2">它的拼音是哪个？</h2>
-            <div class="bg-white border-4 border-pink-200 rounded-3xl w-40 h-40 flex items-center justify-center shadow-md relative">
-                <span id="quiz-char" class="text-[80px] font-bold text-gray-800">火</span>
+            
+            <h2 id="quiz-prompt" class="text-lg sm:text-2xl font-bold text-center text-gray-800 shrink-0">它的拼音是哪个？</h2>
+            
+            <div class="bg-white border-4 border-pink-200 rounded-2xl sm:rounded-3xl w-24 h-24 sm:w-40 sm:h-40 flex items-center justify-center shadow-md relative shrink-0">
+                <span id="quiz-char" class="font-bold text-gray-800" style="font-size: clamp(2.5rem, 8vh, 5rem);">火</span>
             </div>
-            <div id="quiz-options" class="grid grid-cols-2 gap-4 w-full mt-4"></div>
+            
+            <!-- 选项区，使用 flex-1 和 min-h-0 铺满剩余空间，按键高度通过 h-full 自适应 -->
+            <div id="quiz-options" class="grid grid-cols-2 gap-2 sm:gap-4 w-full mt-2 sm:mt-4 flex-1 min-h-0 pb-2"></div>
         </div>
     </div>
 
     <!-- 成功/提示弹窗 -->
     <div id="modal-msg-box" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center bounce-in relative overflow-hidden shadow-2xl">
-            <div id="modal-icon" class="text-[80px] mb-4">🎉</div>
-            <h2 id="modal-title" class="text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
-            <p id="modal-msg" class="text-lg text-gray-600 mb-6">你已经完成了所有的练习！</p>
-            <button id="modal-btn" onclick="app.goHome()" class="w-full bg-green-500 text-white text-xl font-bold py-4 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center bounce-in relative overflow-hidden shadow-2xl">
+            <div id="modal-icon" class="text-[60px] sm:text-[80px] mb-2 sm:mb-4">🎉</div>
+            <h2 id="modal-title" class="text-2xl sm:text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
+            <p id="modal-msg" class="text-base sm:text-lg text-gray-600 mb-4 sm:mb-6">你已经完成了所有的练习！</p>
+            <button id="modal-btn" onclick="app.goHome()" class="w-full bg-green-500 text-white text-lg sm:text-xl font-bold py-3 sm:py-4 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
         </div>
     </div>
 
@@ -289,7 +297,7 @@
         failedChars: [],       
         
         currentIndex: 0, 
-        currentStep: 0, // 新增：控制当前展示的 4 张图中的哪一步 (0~3)
+        currentStep: 0, 
         score: 0, 
         quizSequence: [], 
         bgmInitialized: false,
@@ -313,12 +321,10 @@
             document.addEventListener('click', startAudio);
             document.addEventListener('touchstart', startAudio);
 
-            // 新增：监听全屏状态变化，以更新按钮图标
             const fsEvents = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
             fsEvents.forEach(evt => document.addEventListener(evt, () => this.updateFullscreenBtn()));
         },
 
-        // 新增：全屏切换逻辑（兼容各浏览器）
         toggleFullscreen() {
             const doc = window.document;
             const docEl = doc.documentElement;
@@ -332,12 +338,26 @@
             }
         },
 
-        // 新增：更新全屏按钮的图标
         updateFullscreenBtn() {
             const btn = document.getElementById('btn-fullscreen');
             if (!btn) return;
             const isFull = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
-            btn.innerText = isFull ? '↙️' : '⛶'; // 全屏时显示收缩图标，非全屏时显示展开图标
+            btn.innerText = isFull ? '↙️' : '⛶'; 
+            
+            // 核心修复：全屏时自动去除边缘留白，达到 100% 沉浸填满效果
+            const container = document.getElementById('app-container');
+            const body = document.getElementById('app-body');
+            if (isFull) {
+                container.classList.remove('sm:rounded-3xl');
+                container.classList.add('rounded-none');
+                body.classList.remove('sm:p-4');
+                body.classList.add('p-0');
+            } else {
+                container.classList.add('sm:rounded-3xl');
+                container.classList.remove('rounded-none');
+                body.classList.add('sm:p-4');
+                body.classList.remove('p-0');
+            }
         },
 
         toggleBGM() {
@@ -402,10 +422,10 @@
             const titleEl = document.getElementById('learn-title');
             if (this.isReviewMode) {
                 titleEl.innerText = `复习刚才没记住的 ${this.charsToLearn.length} 个字`;
-                titleEl.className = "absolute -top-6 left-0 right-0 text-center text-sm font-bold text-pink-500";
+                titleEl.className = "absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-pink-500";
             } else {
                 titleEl.innerText = `正在学习新字`;
-                titleEl.className = "absolute -top-6 left-0 right-0 text-center text-sm font-bold text-blue-600";
+                titleEl.className = "absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600";
             }
 
             this.switchView('view-learn'); 
@@ -414,7 +434,7 @@
 
         renderLearnCard() {
             const c = this.charsToLearn[this.currentIndex];
-            this.currentStep = 0; // 重置该字的观看进度 (0~3)
+            this.currentStep = 0; 
 
             document.getElementById('learn-char').innerText = c;
             document.getElementById('learn-pinyin').innerText = getSafePinyin(c);
@@ -431,44 +451,34 @@
         },
 
         updateLearnImage(c) {
-            // 提供预设 fallback 图，确保至少有循环项
             const imgs = charDictionary[c] || ['📝','📖','💡','✨'];
             const el = document.getElementById('learn-image');
             
-            // 移除动画 class
             el.classList.remove('slide-in-right');
-            // 触发回流 (Reflow) 以确保动画重新播放
             void el.offsetWidth; 
-            
-            // 使用取模，无论几张图，都能循环在 4 步内完整展示
             el.innerText = imgs[this.currentStep % imgs.length];
-            
-            // 添加动画 class
             el.classList.add('slide-in-right');
         },
 
         updateLearnButtonText() {
             const btn = document.getElementById('btn-learn-next');
-            if (this.currentStep < 3) { // 前三张图
+            if (this.currentStep < 3) { 
                 btn.innerText = `下一张图 (${this.currentStep + 1}/4)`;
-                btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#4f46e5] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0";
-            } else { // 第四张图 (最后一张)
+                btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0";
+            } else { 
                 btn.innerText = "记住了，下一个 ➡️";
-                btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-[16px] sm:text-lg font-bold py-4 mt-2 rounded-2xl transition-all shadow-[0_5px_0_#2563eb] active:translate-y-[5px] active:shadow-none tracking-wide shrink-0";
+                btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-[14px] sm:text-[16px] md:text-lg font-bold py-2 sm:py-4 mt-2 rounded-xl sm:rounded-2xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none tracking-wide shrink-0";
             }
         },
 
         handleLearnNext() {
             const c = this.charsToLearn[this.currentIndex];
-            
             if (this.currentStep < 3) {
-                // 如果展示图不到4次，继续下一张图
                 this.currentStep++;
                 this.updateLearnImage(c);
                 this.updateLearnButtonText();
                 this.playAudio();
             } else {
-                // 如果图已经看了4次，进入下一个字
                 this.nextChar();
             }
         },
@@ -517,7 +527,8 @@
             container.innerHTML = '';
             opts.forEach(oc => {
                 const btn = document.createElement('button');
-                btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
+                // 题库选项高度调整为通过 h-full 自适应拉伸
+                btn.className = "bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl h-full min-h-[60px] text-[28px] sm:text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
                 btn.innerText = getSafePinyin(oc);
                 btn.onclick = () => this.handleQuizAnswer(oc === target, btn, target);
                 container.appendChild(btn);
@@ -622,7 +633,7 @@
 
         showEmailStatus(type, msg) {
             const el = document.getElementById('email-status');
-            el.className = 'text-sm font-bold text-center py-2 px-3 rounded-xl whitespace-pre-wrap';
+            el.className = 'text-xs sm:text-sm font-bold text-center py-2 px-3 rounded-xl whitespace-pre-wrap';
             if (type === 'loading') { el.classList.add('bg-yellow-100', 'text-yellow-700'); }
             else if (type === 'success') { el.classList.add('bg-green-100', 'text-green-700'); }
             else { el.classList.add('bg-red-100', 'text-red-700'); }
