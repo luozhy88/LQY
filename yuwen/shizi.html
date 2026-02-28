@@ -1,10 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <!-- 版本：V2.1 邮件修复版 - 直连优先 + 精准错误诊断 -->
+    <!-- 
+      ======================================================
+      版本：V2.2 (核心 Bug 修复版)
+      更新内容：
+      1. 修复：修复了 startQuiz 中嵌套双引号导致的严重语法错误 (该错误曾导致 JS 崩溃、汉字无法加载、按钮全部失效)。
+      2. 优化：移除了邮件发送 fallback 逻辑中遇到 4xx 状态码中断循环的限制，确保代理失效时能完整尝试所有备用通道。
+      3. UI更新：版本号升级为 v2.2。
+      ======================================================
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v2.1</title>
+    <title>识字小达人 - 一年级语文学习 v2.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -49,7 +57,7 @@
             <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v2.1</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v2.2</span>
             </h1>
             <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
         </header>
@@ -195,16 +203,12 @@
 
     const { pinyin } = pinyinPro;
 
-    // ===================== 邮件发送（修复版 V2.1）=====================
-    // 修复核心：直连优先 → 代理兜底
-    // Resend API 已支持 CORS，在 Cloudflare Pages 上直连无需代理
+    // ===================== 邮件发送 =====================
     const emailSender = {
         API_KEY: "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K",
         TARGET_URL: "https://api.resend.com/emails",
 
-        // 发送策略：直连 → 代理1 → 代理2
         async send(payload) {
-            // ✅ 策略1：直连（Resend 官方已开放 CORS，Cloudflare Pages 可用）
             const strategies = [
                 {
                     label: "直连 Resend API",
@@ -215,7 +219,6 @@
                     },
                     body: JSON.stringify(payload)
                 },
-                // ✅ 策略2：corsproxy.io 代理（GitHub Pages 可用，部分 CF 环境也可用）
                 {
                     label: "corsproxy.io 代理",
                     url: "https://corsproxy.io/?" + encodeURIComponent(this.TARGET_URL),
@@ -225,14 +228,13 @@
                     },
                     body: JSON.stringify(payload)
                 },
-                // ✅ 策略3：proxy.cors.sh（需要 x-cors-api-key，使用 test 临时密钥）
                 {
                     label: "cors.sh 代理",
                     url: "https://proxy.cors.sh/" + this.TARGET_URL,
                     headers: {
                         "Authorization": `Bearer ${this.API_KEY}`,
                         "Content-Type": "application/json",
-                        "x-cors-api-key": "temp_abcde12345" // 公共测试 key，限速较宽松
+                        "x-cors-api-key": "temp_abcde12345" 
                     },
                     body: JSON.stringify(payload)
                 }
@@ -259,13 +261,11 @@
                     } else {
                         console.warn(`⚠️ [${s.label}] HTTP ${res.status}:`, data.message);
                         lastError = `HTTP ${res.status}: ${data.message || "未知错误"}`;
-                        // HTTP 4xx 说明请求格式有问题，没必要换代理，直接终止
-                        if (res.status >= 400 && res.status < 500) break;
+                        // 【修复】不要在这里 break。有时代理服务器返回 4xx 错误只是代理自身的限制，我们应该继续尝试下一个策略！
                     }
                 } catch (err) {
                     console.warn(`❌ [${s.label}] 网络异常:`, err.message);
                     lastError = err.message;
-                    // 继续尝试下一个策略
                 }
             }
 
@@ -404,7 +404,12 @@
             let avail = [...this.chars];
             if (type === 'image') {
                 avail = avail.filter(c => charDictionary[c]);
-                if (avail.length < 4) { alert("能找到准确图片的字太少（至少4个），改为"看字找音"模式！"); this.startQuiz('pinyin'); return; }
+                if (avail.length < 4) { 
+                    // 【修复核心】之前这里的双引号导致了严重的语法错误，使JS崩溃
+                    alert("能找到准确图片的字太少（至少4个），改为“看字找音”模式！"); 
+                    this.startQuiz('pinyin'); 
+                    return; 
+                }
             }
             this.currentMode = 'quiz_' + type; this.quizType = type;
             this.currentIndex = 0; this.score = 0;
@@ -500,7 +505,7 @@
             this.sendEmailReport(true);
         },
 
-        // ---- 核心邮件发送（修复 CF Pages 版 V2.1）----
+        // ---- 核心邮件发送 ----
         async sendEmailReport(isTest = false) {
             const charsStr = this.chars.join('、');
             const dateStr = new Date().toLocaleString('zh-CN');
@@ -542,9 +547,9 @@
                 console.log("✅ 邮件发送成功，策略：" + result.strategy);
             } else {
                 if (isTest) {
-                    this.showEmailStatus('error', `❌ 三种方式均失败：${result.error}\n请关闭广告拦截插件后重试`);
+                    this.showEmailStatus('error', `❌ 邮件发送失败：${result.error}\n请检查网络或关闭广告拦截插件`);
                 }
-                console.error("❌ 所有邮件策略均失败：", result.error);
+                console.error("❌ 邮件发送失败：", result.error);
             }
         }
     };
