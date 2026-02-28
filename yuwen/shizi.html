@@ -1,0 +1,638 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- 
+      ======================================================
+      版本：V3.0 (智能学习闭环版)
+      更新内容：
+      1. 学习极简交互：单按键“记住了”，自动播放读音。
+      2. 学习闭环：学完自动测 -> 测错自动挑出重学 -> 直到全部掌握。
+      3. 依然保留 V2.4 的 CDN 稳定修复与多重邮件发送保障。
+      ======================================================
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>识字小达人 - 一年级语文学习 v3.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: "Comic Sans MS", "Chalkboard SE", "楷体", "KaiTi", sans-serif;
+            background-color: #f0fdf4;
+            background-image: radial-gradient(#bbf7d0 2px, transparent 2px);
+            background-size: 30px 30px;
+            touch-action: manipulation;
+        }
+        ruby { ruby-align: center; }
+        rt {
+            font-family: Arial, sans-serif;
+            font-size: 0.5em;
+            color: #ef4444;
+            margin-bottom: 5px;
+        }
+        .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+        }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-gray-800">
+
+    <div id="app-container" class="w-full max-w-md bg-white rounded-3xl card-shadow overflow-hidden relative min-h-[600px] flex flex-col">
+        
+        <header class="bg-green-400 text-white p-4 text-center relative z-10 shadow-md rounded-b-2xl">
+            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
+            <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
+                🌟 识字小达人 🌟
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v3.0</span>
+            </h1>
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
+        </header>
+
+        <!-- 视图1：主页 -->
+        <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
+            <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
+                <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
+                    <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="chars-per-level" value="10" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none focus:border-blue-400" onchange="app.updateGroupSize()">
+                        <span class="text-sm text-gray-500">字</span>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
+                    <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
+                    <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
+                    <p class="text-xs text-yellow-600 mt-1" id="hint-text">自动模式：学完立即测试，错字反复学，直到全对！</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-4 mt-auto">
+                <button onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
+                    🚀 开始闯关
+                </button>
+
+                <!-- 邮件测试区域 -->
+                <div class="bg-gray-50 rounded-2xl border border-gray-200 p-3 flex flex-col gap-2 mt-4">
+                    <button id="btn-test-email" onclick="app.testEmail()" class="bg-gray-500 hover:bg-gray-600 text-white text-base font-bold py-2 rounded-xl shadow-[0_4px_0_#374151] active:shadow-[0_0px_0_#374151] active:translate-y-[4px] transition-all">
+                        ✉️ 测试发送邮件
+                    </button>
+                    <!-- 邮件状态显示条 -->
+                    <div id="email-status" class="hidden text-sm font-bold text-center py-2 px-3 rounded-xl"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 视图2：学习模式 -->
+        <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in">
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2 relative">
+                <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="learn-title" class="absolute -top-6 left-0 right-0 text-center text-sm font-bold text-blue-600">正在学习新字</div>
+            </div>
+            <div class="bg-white border-4 border-blue-200 rounded-3xl w-full py-8 flex flex-col items-center justify-center relative shadow-lg">
+                <div class="text-center cursor-pointer group" onclick="app.playAudio()">
+                    <ruby class="text-[90px] font-bold text-gray-800 leading-none mt-2 group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
+                        <span id="learn-char">水</span>
+                        <rt id="learn-pinyin" class="text-[32px] tracking-widest font-sans"></rt>
+                    </ruby>
+                </div>
+                <div class="text-center mt-4">
+                    <div id="learn-image" class="text-[120px] filter drop-shadow-md select-none transition-transform duration-300 inline-block leading-none">💧</div>
+                    <p class="text-[14px] text-gray-400 mt-4 font-bold opacity-80">👆 点击下方按钮查看更多演示</p>
+                </div>
+            </div>
+            
+            <!-- 只有一个按键 -->
+            <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#2563eb] active:translate-y-[6px] active:shadow-none tracking-widest">
+                记住了，下一个 ➡️
+            </button>
+        </div>
+
+        <!-- 视图3：测验模式 -->
+        <div id="view-quiz" class="hidden flex-1 p-6 flex flex-col items-center gap-6 bounce-in relative">
+            <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-2">
+                <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/10</span></div>
+                <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
+            </div>
+            <h2 id="quiz-prompt" class="text-2xl font-bold text-center text-gray-800 mt-2">它的拼音是哪个？</h2>
+            <div class="bg-white border-4 border-pink-200 rounded-3xl w-40 h-40 flex items-center justify-center shadow-md relative">
+                <span id="quiz-char" class="text-[80px] font-bold text-gray-800">火</span>
+            </div>
+            <div id="quiz-options" class="grid grid-cols-2 gap-4 w-full mt-4"></div>
+        </div>
+    </div>
+
+    <!-- 成功/提示弹窗 -->
+    <div id="modal-msg-box" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center bounce-in relative overflow-hidden shadow-2xl">
+            <div id="modal-icon" class="text-[80px] mb-4">🎉</div>
+            <h2 id="modal-title" class="text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
+            <p id="modal-msg" class="text-lg text-gray-600 mb-6">你已经完成了所有的练习！</p>
+            <button id="modal-btn" onclick="app.goHome()" class="w-full bg-green-500 text-white text-xl font-bold py-4 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
+        </div>
+    </div>
+
+    <script>
+    // ===================== 背景音乐 (同旧版) =====================
+    const sound = {
+        ctx: null, bgmInterval: null, isPlaying: false,
+        init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+        playBGM() {
+            if (!this.ctx) this.init(); this.stopBGM(); this.isPlaying = true;
+            const bpm = 120, beatDur = 60 / bpm;
+            let step = 0;
+            const melody = [
+                {n:74,d:.5},{n:78,d:.5},{n:81,d:.5},{n:74,d:.5},
+                {n:69,d:.5},{n:73,d:.5},{n:76,d:.5},{n:69,d:.5},
+                {n:71,d:.5},{n:74,d:.5},{n:78,d:.5},{n:71,d:.5},
+                {n:67,d:.5},{n:71,d:.5},{n:74,d:.5},{n:67,d:.5},
+            ];
+            this.bgmInterval = setInterval(() => {
+                if (this.ctx.state !== 'running') return;
+                const nd = melody[step % melody.length];
+                const freq = 440 * Math.pow(2, (nd.n - 69) / 12);
+                this.playNote(freq, nd.d * beatDur);
+                if (step % 4 === 0) this.playNote(freq / 4, 1.0, 0.05);
+                step++;
+            }, beatDur * 500);
+        },
+        playNote(freq, dur, vol = 0.03) {
+            const o1 = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), g = this.ctx.createGain();
+            o1.type = 'sine'; o2.type = 'triangle';
+            o1.frequency.value = freq; o2.frequency.value = freq * 2;
+            g.gain.setValueAtTime(0, this.ctx.currentTime);
+            g.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur + 0.5);
+            const g2 = this.ctx.createGain(); g2.gain.value = 0.3;
+            o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(this.ctx.destination);
+            o1.start(); o2.start(); o1.stop(this.ctx.currentTime + dur + 1); o2.stop(this.ctx.currentTime + dur + 1);
+        },
+        stopBGM() { this.isPlaying = false; if (this.bgmInterval) clearInterval(this.bgmInterval); }
+    };
+
+    // ===================== 生字库 (同旧版) =====================
+    const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
+
+    const charDictionary = {
+        '日':['☀️','🌞','🌅'],'月':['🌙','🌛','🌕'],'水':['💧','🌊','💦'],'火':['🔥','🌋'],'山':['⛰️','🏔️'],'石':['🪨','💎'],'田':['🌾','🚜'],'土':['🪴','🧱'],'云':['☁️','🌥️'],'雨':['🌧️','☔'],'风':['🌬️','🍃'],'雪':['❄️','⛄'],'雷':['⚡','🌩️'],'电':['⚡','🔌'],'冰':['🧊','🍦'],'霜':['❄️','🧊'],'天':['🌤️','🌌'],'地':['🌍','🌱'],'星':['⭐','🌟'],'光':['💡','✨'],'虹':['🌈'],'池':['🪷','⛲'],'泉':['⛲','💦'],'江':['🏞️','🌊'],'河':['🏞️','🌊'],'海':['🌊','🏖️'],
+        '牛':['🐂','🐄'],'羊':['🐏','🐑'],'马':['🐎','🐴'],'鱼':['🐟','🐠'],'鸟':['🐦','🕊️'],'虫':['🐛','🦋'],'象':['🐘'],'蚂':['🐜'],'蚁':['🐜'],'蛛':['🕷️'],'蛙':['🐸'],'狗':['🐶','🐕'],'猫':['🐱','🐈'],'猪':['🐷','🐖'],'树':['🌳','🌲'],'草':['🌿','🌱'],'花':['🌺','🌻','🌸'],'叶':['🍃','🍂'],'瓜':['🍉','🍈'],'果':['🍎','🍇'],'米':['🍚','🌾'],'豆':['🫘','🌱'],'萍':['🪷','🍃'],
+        '春':['🌸','🌱'],'夏':['🍉','☀️'],'秋':['🍁','🍂'],'冬':['⛄','❄️'],'年':['📅','🧨'],'时':['⏰','⌚'],'钟':['⏰','🕰️'],'晚':['🌙','🌃'],'夜':['🌙','🌃'],'晨':['🌅'],'夕':['🌇'],'午':['🕛','☀️'],
+        '人':['🚶','🧍'],'男':['👦','👨'],'女':['👧','👩'],'爸':['👨','👔'],'妈':['👩','👗'],'哥':['👦','🧢'],'姐':['👧','🎀'],'弟':['👶','🍼'],'妹':['👧','🧸'],'头':['👤','🗣️'],'口':['👄','🗣️'],'眼':['👁️','👀'],'睛':['👁️','👀'],'耳':['👂','🎧'],'手':['🖐️','👋'],'足':['🦶','🦵'],'脚':['🦶','👟'],'腿':['🦵','👖'],'身':['🧍','👤'],'体':['💪','🧍'],'鼻':['👃'],'嘴':['👄'],'臂':['💪'],'肚':['🤰'],'肉':['🥩','🍗'],
+        '飞':['🦅','✈️'],'走':['🚶','👣'],'跑':['🏃','💨'],'跳':['🤸','🦘'],'爬':['🦎','🧗'],'游':['🏊','🐟'],'吃':['🍔','😋'],'喝':['🥤','🥛'],'叫':['🗣️','📣'],'说':['💬','🗣️'],'讲':['👨‍🏫','💬'],'听':['👂','🎧'],'看':['👀','👁️'],'笑':['😂','😊'],'哭':['😭','😢'],'打':['👊','🥊'],'拍':['👏','🏓'],'捉':['🦋','🤲'],'洗':['🧼','🚿'],'吹':['🌬️','😗'],'唱':['🎤','🎵'],'玩':['🎮','🧸'],'坐':['🪑','🧘'],'入':['🚪','⬇️'],'出':['🚪','⬆️'],'放':['👐','📦'],'浇':['🚿','🌻'],'拿':['🤲','🎁'],'落':['🍂','⬇️'],'降':['⬇️','🪂'],
+        '书':['📚','📖'],'笔':['✏️','🖊️'],'纸':['📄','📜'],'车':['🚗','🚲'],'机':['✈️','📱'],'船':['⛵','🚢'],'床':['🛏️','🛋️'],'房':['🏠','🏢'],'家':['🏠','👨‍👩‍👦'],'门':['🚪','⛩️'],'网':['🕸️','🥅'],'球':['⚽','🏀'],'裙':['👗','👘'],'衣':['👕','🧥'],'伞':['☔','🌂'],'包':['🎒','👜'],'面':['🍜','🍞'],'饭':['🍚','🍱'],'药':['💊','💉'],'镜':['🪞','👓'],
+        '红':['🍎','🔴'],'黄':['🍋','🟡'],'蓝':['🐳','🔵'],'绿':['🍏','🟢'],'白':['☁️','⚪'],'黑':['🎱','⚫'],'大':['🐘','🏢'],'小':['🐜','🐁'],'高':['⛰️','🦒'],'低':['⬇️','👇'],'长':['📏','🦒'],'圆':['⭕','🌕'],'方':['🟩','⬛'],'尖':['🗡️','📍'],'快':['🚀','🐆'],'远':['🔭','🛣️'],'近':['🔍','📍'],'明':['💡','☀️'],'上':['⬆️','👆'],'下':['⬇️','👇'],'左':['⬅️','👈'],'右':['➡️','👉'],'前':['⬆️','🚶'],'里':['📦','🏠'],'外':['🏕️','🚪'],'宽':['↔️','🛣️'],
+        '一':['1️⃣','☝️'],'二':['2️⃣','✌️'],'三':['3️⃣','🤟'],'四':['4️⃣'],'五':['5️⃣','🖐️'],'六':['6️⃣','🤙'],'七':['7️⃣'],'八':['8️⃣'],'九':['9️⃣'],'十':['🔟','➕'],'百':['💯'],'千':['🔢'],'万':['🌌','✨'],'半':['🌗','🍕'],'心':['❤️','💖'],'气':['☁️','💨'],'音':['🎵','🎶'],'乐':['🎵','😄'],'病':['🤒','🏥'],'医':['👨‍⚕️','🏥'],'乡':['🏡','🌾'],'国':['🗺️','🏛️'],'王':['👑'],'字':['🔤','✍️'],'双':['🥢','♊'],'块':['🧱','🧊'],'朵':['☁️','🌸'],'座':['⛰️','🏛️'],'本':['📖','📚'],
+        '喜':['😄','🥰'],'欢':['🎉','😊'],'怒':['😡','😤'],'哀':['😭','🥀'],'怕':['😨','👻'],'惊':['😲','😱'],'急':['😰','🏃']
+    };
+
+    function getSafePinyin(char) {
+        try {
+            if (typeof pinyinPro !== 'undefined' && pinyinPro.pinyin) {
+                return pinyinPro.pinyin(char, { toneType: 'symbol' });
+            }
+        } catch (e) { console.warn("拼音库不可用"); }
+        return ""; 
+    }
+
+    // ===================== 邮件系统 (同旧版) =====================
+    const emailSender = {
+        async send(mode, chars, score, seqLen) {
+            const charsStr = chars.join('、');
+            const dateStr = new Date().toLocaleString('zh-CN');
+            
+            let subject = "【识字小达人】进度汇报";
+            let html = "";
+            let formSubmitData = {};
+
+            if (mode === 'test') {
+                subject = `🛠️ 邮件连通性测试 - ${dateStr}`;
+                html = `<h2>✅ 测试成功！</h2>`;
+                formSubmitData = { "系统通知": "发信通道正常工作，一切就绪。" };
+            } else {
+                subject = `🏆 识字完全通关报告 - ${dateStr}`;
+                html = `<h2>🎉 宝宝完成了完整的认字与测试闭环！</h2><p><b>时间：</b>${dateStr}</p><p><b>本组总学字数：</b>${chars.length} 个</p><p><b>🔥 最终得分：</b><span style="color:#ea580c;font-size:1.8em;font-weight:bold">${score}</span> 分</p><p style="color:#4b5563;padding:10px;background:#f3f4f6;border-radius:8px">掌握的字：${charsStr}</p>`;
+                formSubmitData = { "完成模式": "学练闭环", "时间": dateStr, "学习字数": `${chars.length} 个`, "总分": `${score} 分`, "字库": charsStr };
+            }
+
+            let lastError = "";
+
+            try {
+                const fsRes = await fetch("https://formsubmit.co/ajax/479321347@qq.com", {
+                    method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ _subject: subject, _template: "table", _captcha: "false", "通知来源": "识字小达人App", ...formSubmitData })
+                });
+                if (fsRes.ok) return { ok: true, strategy: "FormSubmit" };
+            } catch (e) { lastError = e.message; }
+
+            try {
+                const rsRes = await fetch("https://api.resend.com/emails", {
+                    method: "POST", headers: { "Authorization": "Bearer re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K", "Content-Type": "application/json" },
+                    body: JSON.stringify({ from: "onboarding@resend.dev", to: "479321347@qq.com", subject: subject, html: html })
+                });
+                if (rsRes.ok) return { ok: true, strategy: "Resend 直连" };
+            } catch (e) { lastError = e.message; }
+
+            try {
+                const pxRes = await fetch("https://cors.eu.org/https://api.resend.com/emails", {
+                    method: "POST", headers: { "Authorization": "Bearer re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K", "Content-Type": "application/json" },
+                    body: JSON.stringify({ from: "onboarding@resend.dev", to: "479321347@qq.com", subject: subject, html: html })
+                });
+                if (pxRes.ok) return { ok: true, strategy: "Resend 代理" };
+            } catch (e) { lastError = e.message; }
+
+            return { ok: false, error: "通道失败: " + lastError };
+        }
+    };
+
+    // ===================== 主应用逻辑 (重点重构区) =====================
+    const app = {
+        allCharsInSession: [], // 本次选中的所有字
+        charsToLearn: [],      // 当前阶段需要学习的字（可能是全部，也可能是错字）
+        failedChars: [],       // 记录测验中错过的字
+        
+        currentIndex: 0, 
+        currentImageIndex: 0,
+        score: 0, 
+        quizSequence: [], 
+        bgmInitialized: false,
+        isReviewMode: false,   // 是否处于复习错字阶段
+        hasCurrentQuestionMistake: false, // 标记当前测验题目是否答错过
+
+        init() {
+            document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
+            this.initLessons();
+
+            const startAudio = () => {
+                if (!this.bgmInitialized) {
+                    this.bgmInitialized = true;
+                    sound.init(); sound.playBGM();
+                    document.getElementById('btn-bgm').innerText = '🎵';
+                    document.getElementById('btn-bgm').classList.remove('opacity-50');
+                    document.removeEventListener('click', startAudio);
+                    document.removeEventListener('touchstart', startAudio);
+                }
+            };
+            document.addEventListener('click', startAudio);
+            document.addEventListener('touchstart', startAudio);
+        },
+
+        toggleBGM() {
+            this.bgmInitialized = true;
+            const btn = document.getElementById('btn-bgm');
+            if (!sound.isPlaying) { sound.playBGM(); btn.innerText = '🎵'; btn.classList.remove('opacity-50'); }
+            else { sound.stopBGM(); btn.innerText = '🔇'; btn.classList.add('opacity-50'); }
+        },
+
+        updateGroupSize() {
+            let v = parseInt(document.getElementById('chars-per-level').value);
+            if (isNaN(v) || v < 5) v = 5; if (v > 100) v = 100;
+            document.getElementById('chars-per-level').value = v;
+            this.initLessons();
+        },
+
+        initLessons() {
+            const unique = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
+            const gs = parseInt(document.getElementById('chars-per-level').value) || 10;
+            const sel = document.getElementById('lesson-select');
+            sel.innerHTML = '';
+            for (let i = 0; i < unique.length; i += gs) {
+                const chars = unique.slice(i, i + gs).join('');
+                const opt = document.createElement('option');
+                opt.value = chars;
+                opt.innerText = `第 ${Math.floor(i/gs)+1} 关 (进度 ${i+1}~${Math.min(i+gs, unique.length)} 字)`;
+                sel.appendChild(opt);
+            }
+            this.changeLesson();
+        },
+
+        changeLesson() {
+            document.getElementById('input-chars').value = document.getElementById('lesson-select').value;
+        },
+
+        parseInput() {
+            const m = document.getElementById('input-chars').value.match(/[\u4e00-\u9fa5]/g);
+            if (!m || m.length === 0) { alert("请至少输入一个汉字哦！"); return false; }
+            this.allCharsInSession = [...new Set(m)]; 
+            return true;
+        },
+
+        switchView(id) {
+            ['view-home','view-learn','view-quiz','modal-msg-box'].forEach(v => document.getElementById(v).classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById('btn-home-back').classList.toggle('hidden', id === 'view-home');
+        },
+
+        goHome() { this.switchView('view-home'); },
+
+        // ====== 流程控制：启动学习闭环 ======
+        startFlow() {
+            if (!this.parseInput()) return;
+            
+            // 初始化全局状态
+            this.score = 0;
+            this.isReviewMode = false;
+            
+            // 启动第一轮学习
+            this.startLearningPhase(this.allCharsInSession);
+        },
+
+        // ====== 阶段：学习 ======
+        startLearningPhase(charArray) {
+            this.charsToLearn = charArray;
+            this.currentIndex = 0; 
+            this.currentImageIndex = 0;
+            
+            // UI 更新
+            const titleEl = document.getElementById('learn-title');
+            if (this.isReviewMode) {
+                titleEl.innerText = `复习刚才没记住的 ${this.charsToLearn.length} 个字`;
+                titleEl.className = "absolute -top-6 left-0 right-0 text-center text-sm font-bold text-pink-500";
+            } else {
+                titleEl.innerText = `正在学习新字`;
+                titleEl.className = "absolute -top-6 left-0 right-0 text-center text-sm font-bold text-blue-600";
+            }
+
+            this.switchView('view-learn'); 
+            this.renderLearnCard();
+        },
+
+        renderLearnCard() {
+            const c = this.charsToLearn[this.currentIndex];
+            document.getElementById('learn-char').innerText = c;
+            document.getElementById('learn-pinyin').innerText = getSafePinyin(c);
+            
+            this.updateLearnImage(c);
+            document.getElementById('learn-progress').style.width = `${((this.currentIndex+1)/this.charsToLearn.length)*100}%`;
+            
+            const card = document.getElementById('view-learn').querySelector('.bg-white');
+            card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
+            
+            // 自动播放语音 (因为进入此页必有用户交互，所以不会被浏览器拦截)
+            setTimeout(() => this.playAudio(), 100);
+
+            // 更新按钮状态（判断是否还有图）
+            this.updateLearnButtonText();
+        },
+
+        updateLearnButtonText() {
+            const c = this.charsToLearn[this.currentIndex];
+            const imgs = charDictionary[c] || ['📝','📖','💡'];
+            const btn = document.getElementById('btn-learn-next');
+            if (this.currentImageIndex < imgs.length - 1) {
+                // 如果还有图片没展示完，按钮变成紫色，提示“下一张图”
+                btn.innerText = "下一张图 🖼️";
+                btn.className = "w-full bg-indigo-500 hover:bg-indigo-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#4f46e5] active:translate-y-[6px] active:shadow-none tracking-widest";
+            } else {
+                // 如果图片展示完了，按钮变成蓝色，提示“下一个”
+                btn.innerText = "记住了，下一个 ➡️";
+                btn.className = "w-full bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-5 mt-4 rounded-2xl transition-all shadow-[0_6px_0_#2563eb] active:translate-y-[6px] active:shadow-none tracking-widest";
+            }
+        },
+
+        handleLearnNext() {
+            const c = this.charsToLearn[this.currentIndex];
+            const imgs = charDictionary[c] || ['📝','📖','💡'];
+            
+            if (this.currentImageIndex < imgs.length - 1) {
+                // 还有图片没展示完，展示下一张图
+                this.currentImageIndex++;
+                this.updateLearnImage(c);
+                
+                // 给图片添加弹跳动画
+                const el = document.getElementById('learn-image');
+                el.style.transform = 'scale(0.8)'; setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
+                
+                this.playAudio();
+                this.updateLearnButtonText();
+            } else {
+                // 这个字的图片已经全展示完了，进入下一个字
+                this.nextChar();
+            }
+        },
+
+        updateLearnImage(c) {
+            const imgs = charDictionary[c] || ['📝','📖','💡'];
+            this.currentImageIndex = this.currentImageIndex % imgs.length;
+            document.getElementById('learn-image').innerText = imgs[this.currentImageIndex];
+        },
+
+        // 学习阶段点击“下一个”
+        nextChar() {
+            if (this.currentIndex < this.charsToLearn.length - 1) { 
+                this.currentIndex++; 
+                this.currentImageIndex = 0; 
+                this.renderLearnCard(); 
+            } else {
+                // 当前阶段字全看完了，无缝进入测验
+                this.startQuizPhase();
+            }
+        },
+
+        // ====== 阶段：测验 ======
+        startQuizPhase() {
+            this.failedChars = []; // 重置本次测验的错题记录
+            this.currentIndex = 0;
+            // 测验内容就是刚才学的那些字打乱
+            this.quizSequence = [...this.charsToLearn].sort(() => Math.random() - 0.5);
+            
+            this.switchView('view-quiz');
+            document.getElementById('quiz-prompt').innerText = "它的拼音是哪个？"; // 统一使用拼音测试，最稳定
+            this.renderQuizQuestion();
+        },
+
+        renderQuizQuestion() {
+            if (this.currentIndex >= this.quizSequence.length) {
+                // 测验结束，检查是否出错
+                this.checkQuizResult();
+                return;
+            }
+
+            this.hasCurrentQuestionMistake = false; // 初始化当前题目标记
+
+            const target = this.quizSequence[this.currentIndex];
+            document.getElementById('quiz-char').innerText = target;
+            document.getElementById('quiz-score').innerText = this.score;
+            document.getElementById('quiz-progress-text').innerText = `${this.currentIndex+1}/${this.quizSequence.length}`;
+
+            let opts = [target];
+            // 从所有字库里挑混淆项
+            let dist = [...this.allCharsInSession].filter(c => c !== target).sort(() => Math.random() - 0.5).slice(0, 3);
+            if (dist.length < 3) {
+                const extra = Object.keys(charDictionary).filter(c => c !== target && !dist.includes(c)).sort(() => Math.random() - 0.5).slice(0, 3 - dist.length);
+                dist.push(...extra);
+            }
+            opts = opts.concat(dist).sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('quiz-options');
+            container.innerHTML = '';
+            opts.forEach(oc => {
+                const btn = document.createElement('button');
+                btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
+                btn.innerText = getSafePinyin(oc);
+                btn.onclick = () => this.handleQuizAnswer(oc === target, btn, target);
+                container.appendChild(btn);
+            });
+
+            this.playAudio();
+            const charBox = document.getElementById('quiz-char').parentElement;
+            charBox.classList.remove('bounce-in'); void charBox.offsetWidth; charBox.classList.add('bounce-in');
+        },
+
+        handleQuizAnswer(correct, btn, targetChar) {
+            if (correct) {
+                // 只有一次就答对才加分
+                if (!this.hasCurrentQuestionMistake) this.score += 10;
+                
+                btn.classList.add('bg-green-100', 'border-green-500');
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                
+                // 锁住所有按钮防连点
+                document.getElementById('quiz-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                
+                setTimeout(() => { 
+                    this.currentIndex++; 
+                    this.renderQuizQuestion(); 
+                }, 1000);
+            } else {
+                btn.classList.add('shake', 'bg-red-50', 'border-red-400');
+                
+                // 记录错误 (确保每个字只记录一次)
+                if (!this.hasCurrentQuestionMistake) {
+                    this.hasCurrentQuestionMistake = true;
+                    if (!this.failedChars.includes(targetChar)) {
+                        this.failedChars.push(targetChar);
+                    }
+                }
+
+                setTimeout(() => btn.classList.remove('shake'), 400);
+                if ('speechSynthesis' in window) {
+                    const u = new SpeechSynthesisUtterance("再想想哦");
+                    u.lang = 'zh-CN'; u.rate = 1.2; window.speechSynthesis.speak(u);
+                }
+            }
+        },
+
+        // ====== 检查测验结果，决定是否形成闭环 ======
+        checkQuizResult() {
+            if (this.failedChars.length > 0) {
+                // 有错字，提示重学
+                this.showModal(
+                    "🤔 还要加油哦", 
+                    `有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个字刚才没认出来，<br>我们把它们再学一遍吧！`, 
+                    "⚠️", 
+                    "好的，去复习", 
+                    () => {
+                        this.isReviewMode = true;
+                        this.startLearningPhase([...this.failedChars]);
+                    }
+                );
+            } else {
+                // 全对，完美通关！
+                this.showModal(
+                    "太棒了！", 
+                    `所有的字你都完全掌握啦！<br>本次总得分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！`, 
+                    "🎉", 
+                    "返回首页", 
+                    () => {
+                        this.sendEmailReport();
+                        this.goHome();
+                    }
+                );
+                
+                // 撒花特效
+                const end = Date.now() + 3000;
+                (function frame() {
+                    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                    if (Date.now() < end) requestAnimationFrame(frame);
+                })();
+            }
+        },
+
+        playAudio() {
+            let c = "";
+            if (!document.getElementById('view-learn').classList.contains('hidden')) c = this.charsToLearn[this.currentIndex];
+            else if (!document.getElementById('view-quiz').classList.contains('hidden')) c = document.getElementById('quiz-char').innerText;
+            
+            if (c && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(c);
+                u.lang = 'zh-CN'; u.rate = 0.8;
+                window.speechSynthesis.speak(u);
+            }
+        },
+
+        // 自定义弹窗
+        showModal(title, msgHtml, icon, btnText, callback) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-msg').innerHTML = msgHtml;
+            document.getElementById('modal-icon').innerText = icon;
+            
+            const btn = document.getElementById('modal-btn');
+            btn.innerText = btnText;
+            btn.onclick = () => {
+                document.getElementById('modal-msg-box').classList.add('hidden');
+                if(callback) callback();
+            };
+            
+            document.getElementById('modal-msg-box').classList.remove('hidden');
+        },
+
+        // ---- 邮件测试与发送 ----
+        showEmailStatus(type, msg) {
+            const el = document.getElementById('email-status');
+            el.className = 'text-sm font-bold text-center py-2 px-3 rounded-xl whitespace-pre-wrap';
+            if (type === 'loading') { el.classList.add('bg-yellow-100', 'text-yellow-700'); }
+            else if (type === 'success') { el.classList.add('bg-green-100', 'text-green-700'); }
+            else { el.classList.add('bg-red-100', 'text-red-700'); }
+            el.innerText = msg;
+            el.classList.remove('hidden');
+            if (type !== 'loading') setTimeout(() => el.classList.add('hidden'), 10000);
+        },
+
+        async testEmail() {
+            const btn = document.getElementById('btn-test-email');
+            btn.disabled = true;
+            btn.innerText = "⏳ 正在发信中...";
+            this.showEmailStatus('loading', '⏳ 正在尝试发送...');
+
+            const result = await emailSender.send('test', ['测','试'], 0, 0);
+
+            btn.disabled = false;
+            btn.innerText = "✉️ 测试发送邮件";
+
+            if (result.ok) {
+                this.showEmailStatus('success', `✅ 发送成功！通道：${result.strategy}`);
+            } else {
+                this.showEmailStatus('error', `❌ 发送失败！\n${result.error}`);
+            }
+        },
+
+        async sendEmailReport() {
+            await emailSender.send('full_pass', this.allCharsInSession, this.score, 0);
+        }
+    };
+
+    window.onload = () => {
+        try { app.init(); } catch (e) { console.error(e); }
+    };
+    </script>
+</body>
+</html>
