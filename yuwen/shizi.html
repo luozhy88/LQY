@@ -1,27 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <!-- 
-      ======================================================
-      版本：V2.0 (多平台部署 & 强力防拦截更新)
-      更新内容：
-      1. 核心修复：重构了代理池机制。专门针对 Cloudflare Pages 部署时导致的内部回源拦截 (Failed to fetch) 进行了代理节点替换。
-      2. 优化：新增精准的错误诊断弹窗。当遭遇浏览器广告拦截器 (AdBlock/uBlock) 或跨域拦截时，给出明确的中文排查指导，而不是干巴巴的英文报错。
-      3. UI更新：版本号升级为 v2.0。
-      ======================================================
-    -->
+    <!-- 版本：V2.1 邮件修复版 - 直连优先 + 精准错误诊断 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v2.0</title>
-    <!-- Tailwind CSS -->
+    <title>识字小达人 - 一年级语文学习 v2.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 拼音库 -->
     <script src="https://unpkg.com/pinyin-pro@3.19.4/dist/index.js"></script>
-    <!-- 撒花特效库 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        /* 自定义可爱字体和排版 */
         body {
             font-family: "Comic Sans MS", "Chalkboard SE", "楷体", "KaiTi", sans-serif;
             background-color: #f0fdf4;
@@ -29,79 +17,46 @@
             background-size: 30px 30px;
             touch-action: manipulation;
         }
-
-        /* 拼音排版优化 */
-        ruby {
-            ruby-align: center;
-        }
+        ruby { ruby-align: center; }
         rt {
-            font-family: Arial, sans-serif; /* 拼音使用无衬线字体更清晰 */
+            font-family: Arial, sans-serif;
             font-size: 0.5em;
             color: #ef4444;
             margin-bottom: 5px;
         }
-
-        /* 动画效果 */
-        .bounce-in {
-            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+        .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn {
             0% { transform: scale(0.5); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
         }
-
-        .shake {
-            animation: shake 0.4s ease-in-out;
-        }
+        .shake { animation: shake 0.4s ease-in-out; }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-10px); }
             50% { transform: translateX(10px); }
             75% { transform: translateX(-10px); }
         }
-
-        .card-shadow {
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* 隐藏滚动条但保留功能 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 text-gray-800">
 
-    <!-- 应用主容器 -->
     <div id="app-container" class="w-full max-w-md bg-white rounded-3xl card-shadow overflow-hidden relative min-h-[600px] flex flex-col">
         
-        <!-- 头部栏 -->
         <header class="bg-green-400 text-white p-4 text-center relative z-10 shadow-md rounded-b-2xl">
-            <!-- 返回主页按钮 -->
-            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">
-                🏠
-            </button>
-            
+            <button id="btn-home-back" class="hidden absolute left-4 top-4 text-white hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center">🏠</button>
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v2.0</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v2.1</span>
             </h1>
-            
-            <!-- 全局音乐开关 -->
-            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">
-                🔇
-            </button>
+            <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-4 top-4 text-xl hover:scale-110 transition-transform bg-green-500 rounded-full w-8 h-8 flex items-center justify-center shadow-sm opacity-50">🔇</button>
         </header>
 
-        <!-- 视图 1：主页/输入页 -->
+        <!-- 视图1：主页 -->
         <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
             <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
-                
-                <!-- 自定义每关字数 -->
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm mb-1">
                     <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
                     <div class="flex items-center gap-2">
@@ -109,52 +64,40 @@
                         <span class="text-sm text-gray-500">字</span>
                     </div>
                 </div>
-
-                <!-- 分阶段下拉选择器 -->
                 <div>
                     <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
-                    <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()">
-                        <!-- 选项通过 JS 自动生成 -->
-                    </select>
+                    <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()"></select>
                 </div>
-                
-                <!-- 缩小了输入框，提示文本更友好 -->
                 <div>
                     <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
                     <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
                     <p class="text-xs text-yellow-600 mt-1" id="hint-text">每次 15 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。</p>
                 </div>
             </div>
-
             <div class="grid grid-cols-1 gap-4 mt-auto">
-                <button onclick="app.startLearning()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all">
-                    📖 开始学习
-                </button>
+                <button onclick="app.startLearning()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all">📖 开始学习</button>
                 <div class="grid grid-cols-2 gap-4">
-                    <button onclick="app.startQuiz('image')" class="bg-pink-500 hover:bg-pink-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#db2777] active:shadow-[0_0px_0_#db2777] active:translate-y-[6px] transition-all">
-                        🖼️ 找图
-                    </button>
-                    <button onclick="app.startQuiz('pinyin')" class="bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#9333ea] active:shadow-[0_0px_0_#9333ea] active:translate-y-[6px] transition-all">
-                        🔤 找音
-                    </button>
+                    <button onclick="app.startQuiz('image')" class="bg-pink-500 hover:bg-pink-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#db2777] active:shadow-[0_0px_0_#db2777] active:translate-y-[6px] transition-all">🖼️ 找图</button>
+                    <button onclick="app.startQuiz('pinyin')" class="bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#9333ea] active:shadow-[0_0px_0_#9333ea] active:translate-y-[6px] transition-all">🔤 找音</button>
                 </div>
-                <!-- 邮件测试按钮 -->
-                <button onclick="app.testEmail()" class="bg-gray-400 hover:bg-gray-500 text-white text-lg font-bold py-3 rounded-2xl shadow-[0_4px_0_#4b5563] active:shadow-[0_0px_0_#4b5563] active:translate-y-[4px] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    ✉️ 测试发送邮件
-                </button>
+
+                <!-- 邮件测试区域 -->
+                <div class="bg-gray-50 rounded-2xl border border-gray-200 p-3 flex flex-col gap-2">
+                    <button id="btn-test-email" onclick="app.testEmail()" class="bg-gray-500 hover:bg-gray-600 text-white text-lg font-bold py-3 rounded-xl shadow-[0_4px_0_#374151] active:shadow-[0_0px_0_#374151] active:translate-y-[4px] transition-all">
+                        ✉️ 测试发送邮件
+                    </button>
+                    <!-- 邮件状态显示条 -->
+                    <div id="email-status" class="hidden text-sm font-bold text-center py-2 px-3 rounded-xl"></div>
+                </div>
             </div>
         </div>
 
-        <!-- 视图 2：学习模式 -->
+        <!-- 视图2：学习模式 -->
         <div id="view-learn" class="hidden flex-1 p-6 flex flex-col items-center justify-center gap-6 bounce-in">
-            <!-- 进度条 -->
             <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                 <div id="learn-progress" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
-
-            <!-- 卡片 -->
             <div class="bg-white border-4 border-blue-200 rounded-3xl w-full py-8 flex flex-col items-center justify-center relative shadow-lg">
-                <!-- 汉字与拼音 (点击发音) -->
                 <div class="text-center cursor-pointer group" onclick="app.playAudio()">
                     <ruby class="text-[80px] font-bold text-gray-800 leading-none mt-2 group-hover:text-blue-500 transition-colors inline-block group-active:scale-95">
                         <span id="learn-char">水</span>
@@ -162,740 +105,451 @@
                     </ruby>
                     <p class="text-[12px] text-blue-400 mt-2 font-bold opacity-80">👆 点击汉字听发音</p>
                 </div>
-                
-                <!-- 意思图片 (点击换图) -->
                 <div class="text-center cursor-pointer mt-4 group" onclick="app.nextImage()">
-                    <div id="learn-image" class="text-[180px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">
-                        💧
-                    </div>
+                    <div id="learn-image" class="text-[180px] filter drop-shadow-md select-none transition-transform duration-300 group-hover:scale-110 group-active:scale-90 inline-block leading-none">💧</div>
                     <p class="text-[12px] text-yellow-500 mt-4 font-bold opacity-80">👆 点击图片听读音并换图</p>
                 </div>
             </div>
-
             <div class="flex justify-between w-full gap-4 mt-2">
-                <button onclick="app.prevChar()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none">
-                    ⬅️ 上一个
-                </button>
-                <button onclick="app.nextChar()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none">
-                    下一个 ➡️
-                </button>
+                <button onclick="app.prevChar()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#d1d5db] active:translate-y-[4px] active:shadow-none">⬅️ 上一个</button>
+                <button onclick="app.nextChar()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none">下一个 ➡️</button>
             </div>
         </div>
 
-        <!-- 视图 3：测验模式 (找图 / 找音) -->
+        <!-- 视图3：测验模式 -->
         <div id="view-quiz" class="hidden flex-1 p-6 flex flex-col items-center gap-6 bounce-in relative">
-            <!-- 计分板 -->
             <div class="w-full flex justify-between items-center text-lg font-bold text-gray-600 mt-2">
                 <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/10</span></div>
                 <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
             </div>
-
             <h2 id="quiz-prompt" class="text-2xl font-bold text-center text-gray-800 mt-2">哪一张图是它？</h2>
-            
-            <!-- 题目字 -->
             <div class="bg-white border-4 border-pink-200 rounded-3xl w-40 h-40 flex items-center justify-center shadow-md relative">
                 <span id="quiz-char" class="text-[80px] font-bold text-gray-800">火</span>
             </div>
-
-            <!-- 选项网格 -->
-            <div id="quiz-options" class="grid grid-cols-2 gap-4 w-full mt-4">
-                <!-- 选项通过 JS 动态生成 -->
-            </div>
+            <div id="quiz-options" class="grid grid-cols-2 gap-4 w-full mt-4"></div>
         </div>
-
     </div>
 
-    <!-- 成功通关弹窗 -->
+    <!-- 成功弹窗 -->
     <div id="modal-success" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center bounce-in relative overflow-hidden">
             <div class="text-[80px] mb-4">🎉</div>
             <h2 class="text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
             <p id="modal-msg" class="text-lg text-gray-600 mb-6">你已经完成了所有的练习！</p>
-            <button onclick="app.goHome()" class="w-full bg-green-500 text-white text-xl font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">
-                返回首页
-            </button>
+            <button onclick="app.goHome()" class="w-full bg-green-500 text-white text-xl font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
         </div>
     </div>
 
     <script>
-        // 背景音乐合成器 (Web Audio API)，彻底解决浏览器拦截外部音频的问题
-        const sound = {
-            ctx: null,
-            bgmInterval: null,
-            isPlaying: false,
+    // ===================== 背景音乐 =====================
+    const sound = {
+        ctx: null, bgmInterval: null, isPlaying: false,
+        init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+        playBGM() {
+            if (!this.ctx) this.init(); this.stopBGM(); this.isPlaying = true;
+            const bpm = 120, beatDur = 60 / bpm;
+            let step = 0;
+            const melody = [
+                {n:74,d:.5},{n:78,d:.5},{n:81,d:.5},{n:74,d:.5},
+                {n:69,d:.5},{n:73,d:.5},{n:76,d:.5},{n:69,d:.5},
+                {n:71,d:.5},{n:74,d:.5},{n:78,d:.5},{n:71,d:.5},
+                {n:67,d:.5},{n:71,d:.5},{n:74,d:.5},{n:67,d:.5},
+            ];
+            this.bgmInterval = setInterval(() => {
+                if (this.ctx.state !== 'running') return;
+                const nd = melody[step % melody.length];
+                const freq = 440 * Math.pow(2, (nd.n - 69) / 12);
+                this.playNote(freq, nd.d * beatDur);
+                if (step % 4 === 0) this.playNote(freq / 4, 1.0, 0.05);
+                step++;
+            }, beatDur * 500);
+        },
+        playNote(freq, dur, vol = 0.03) {
+            const o1 = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), g = this.ctx.createGain();
+            o1.type = 'sine'; o2.type = 'triangle';
+            o1.frequency.value = freq; o2.frequency.value = freq * 2;
+            g.gain.setValueAtTime(0, this.ctx.currentTime);
+            g.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur + 0.5);
+            const g2 = this.ctx.createGain(); g2.gain.value = 0.3;
+            o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(this.ctx.destination);
+            o1.start(); o2.start(); o1.stop(this.ctx.currentTime + dur + 1); o2.stop(this.ctx.currentTime + dur + 1);
+        },
+        stopBGM() { this.isPlaying = false; if (this.bgmInterval) clearInterval(this.bgmInterval); }
+    };
 
-            init: function() {
-                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                if (this.ctx.state === 'suspended') this.ctx.resume();
-            },
+    // ===================== 生字库 =====================
+    const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
 
-            playBGM: function() {
-                if (!this.ctx) this.init();
-                this.stopBGM();
+    const charDictionary = {
+        '日':['☀️','🌞','🌅'],'月':['🌙','🌛','🌕'],'水':['💧','🌊','💦'],'火':['🔥','🌋'],'山':['⛰️','🏔️'],'石':['🪨','💎'],'田':['🌾','🚜'],'土':['🪴','🧱'],'云':['☁️','🌥️'],'雨':['🌧️','☔'],'风':['🌬️','🍃'],'雪':['❄️','⛄'],'雷':['⚡','🌩️'],'电':['⚡','🔌'],'冰':['🧊','🍦'],'霜':['❄️','🧊'],'天':['🌤️','🌌'],'地':['🌍','🌱'],'星':['⭐','🌟'],'光':['💡','✨'],'虹':['🌈'],'池':['🪷','⛲'],'泉':['⛲','💦'],'江':['🏞️','🌊'],'河':['🏞️','🌊'],'海':['🌊','🏖️'],
+        '牛':['🐂','🐄'],'羊':['🐏','🐑'],'马':['🐎','🐴'],'鱼':['🐟','🐠'],'鸟':['🐦','🕊️'],'虫':['🐛','🦋'],'象':['🐘'],'蚂':['🐜'],'蚁':['🐜'],'蛛':['🕷️'],'蛙':['🐸'],'狗':['🐶','🐕'],'猫':['🐱','🐈'],'猪':['🐷','🐖'],'树':['🌳','🌲'],'草':['🌿','🌱'],'花':['🌺','🌻','🌸'],'叶':['🍃','🍂'],'瓜':['🍉','🍈'],'果':['🍎','🍇'],'米':['🍚','🌾'],'豆':['🫘','🌱'],'萍':['🪷','🍃'],
+        '春':['🌸','🌱'],'夏':['🍉','☀️'],'秋':['🍁','🍂'],'冬':['⛄','❄️'],'年':['📅','🧨'],'时':['⏰','⌚'],'钟':['⏰','🕰️'],'晚':['🌙','🌃'],'夜':['🌙','🌃'],'晨':['🌅'],'夕':['🌇'],'午':['🕛','☀️'],
+        '人':['🚶','🧍'],'男':['👦','👨'],'女':['👧','👩'],'爸':['👨','👔'],'妈':['👩','👗'],'哥':['👦','🧢'],'姐':['👧','🎀'],'弟':['👶','🍼'],'妹':['👧','🧸'],'头':['👤','🗣️'],'口':['👄','🗣️'],'眼':['👁️','👀'],'睛':['👁️','👀'],'耳':['👂','🎧'],'手':['🖐️','👋'],'足':['🦶','🦵'],'脚':['🦶','👟'],'腿':['🦵','👖'],'身':['🧍','👤'],'体':['💪','🧍'],'鼻':['👃'],'嘴':['👄'],'臂':['💪'],'肚':['🤰'],'肉':['🥩','🍗'],
+        '飞':['🦅','✈️'],'走':['🚶','👣'],'跑':['🏃','💨'],'跳':['🤸','🦘'],'爬':['🦎','🧗'],'游':['🏊','🐟'],'吃':['🍔','😋'],'喝':['🥤','🥛'],'叫':['🗣️','📣'],'说':['💬','🗣️'],'讲':['👨‍🏫','💬'],'听':['👂','🎧'],'看':['👀','👁️'],'笑':['😂','😊'],'哭':['😭','😢'],'打':['👊','🥊'],'拍':['👏','🏓'],'捉':['🦋','🤲'],'洗':['🧼','🚿'],'吹':['🌬️','😗'],'唱':['🎤','🎵'],'玩':['🎮','🧸'],'坐':['🪑','🧘'],'入':['🚪','⬇️'],'出':['🚪','⬆️'],'放':['👐','📦'],'浇':['🚿','🌻'],'拿':['🤲','🎁'],'落':['🍂','⬇️'],'降':['⬇️','🪂'],
+        '书':['📚','📖'],'笔':['✏️','🖊️'],'纸':['📄','📜'],'车':['🚗','🚲'],'机':['✈️','📱'],'船':['⛵','🚢'],'床':['🛏️','🛋️'],'房':['🏠','🏢'],'家':['🏠','👨‍👩‍👦'],'门':['🚪','⛩️'],'网':['🕸️','🥅'],'球':['⚽','🏀'],'裙':['👗','👘'],'衣':['👕','🧥'],'伞':['☔','🌂'],'包':['🎒','👜'],'面':['🍜','🍞'],'饭':['🍚','🍱'],'药':['💊','💉'],'镜':['🪞','👓'],
+        '红':['🍎','🔴'],'黄':['🍋','🟡'],'蓝':['🐳','🔵'],'绿':['🍏','🟢'],'白':['☁️','⚪'],'黑':['🎱','⚫'],'大':['🐘','🏢'],'小':['🐜','🐁'],'高':['⛰️','🦒'],'低':['⬇️','👇'],'长':['📏','🦒'],'圆':['⭕','🌕'],'方':['🟩','⬛'],'尖':['🗡️','📍'],'快':['🚀','🐆'],'远':['🔭','🛣️'],'近':['🔍','📍'],'明':['💡','☀️'],'上':['⬆️','👆'],'下':['⬇️','👇'],'左':['⬅️','👈'],'右':['➡️','👉'],'前':['⬆️','🚶'],'里':['📦','🏠'],'外':['🏕️','🚪'],'宽':['↔️','🛣️'],
+        '一':['1️⃣','☝️'],'二':['2️⃣','✌️'],'三':['3️⃣','🤟'],'四':['4️⃣'],'五':['5️⃣','🖐️'],'六':['6️⃣','🤙'],'七':['7️⃣'],'八':['8️⃣'],'九':['9️⃣'],'十':['🔟','➕'],'百':['💯'],'千':['🔢'],'万':['🌌','✨'],'半':['🌗','🍕'],'心':['❤️','💖'],'气':['☁️','💨'],'音':['🎵','🎶'],'乐':['🎵','😄'],'病':['🤒','🏥'],'医':['👨‍⚕️','🏥'],'乡':['🏡','🌾'],'国':['🗺️','🏛️'],'王':['👑'],'字':['🔤','✍️'],'双':['🥢','♊'],'块':['🧱','🧊'],'朵':['☁️','🌸'],'座':['⛰️','🏛️'],'本':['📖','📚'],
+        '喜':['😄','🥰'],'欢':['🎉','😊'],'怒':['😡','😤'],'哀':['😭','🥀'],'怕':['😨','👻'],'惊':['😲','😱'],'急':['😰','🏃']
+    };
 
-                this.isPlaying = true;
-                const bpm = 120;
-                const beatDuration = 60 / bpm;
-                let step = 0;
+    const { pinyin } = pinyinPro;
 
-                // 欢快的轻音乐旋律 (利用代码自动弹奏)
-                const melodyPattern = [
-                    { note: 74, dur: 0.5 }, { note: 78, dur: 0.5 }, { note: 81, dur: 0.5 }, { note: 74, dur: 0.5 },
-                    { note: 69, dur: 0.5 }, { note: 73, dur: 0.5 }, { note: 76, dur: 0.5 }, { note: 69, dur: 0.5 },
-                    { note: 71, dur: 0.5 }, { note: 74, dur: 0.5 }, { note: 78, dur: 0.5 }, { note: 71, dur: 0.5 },
-                    { note: 67, dur: 0.5 }, { note: 71, dur: 0.5 }, { note: 74, dur: 0.5 }, { note: 67, dur: 0.5 },
-                ];
+    // ===================== 邮件发送（修复版 V2.1）=====================
+    // 修复核心：直连优先 → 代理兜底
+    // Resend API 已支持 CORS，在 Cloudflare Pages 上直连无需代理
+    const emailSender = {
+        API_KEY: "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K",
+        TARGET_URL: "https://api.resend.com/emails",
 
-                this.bgmInterval = setInterval(() => {
-                    if(this.ctx.state !== 'running') return;
-                    
-                    const noteData = melodyPattern[step % melodyPattern.length];
-                    const freq = 440 * Math.pow(2, (noteData.note - 69) / 12);
-                    
-                    this.playPianoNote(freq, noteData.dur * beatDuration);
-                    
-                    if (step % 4 === 0) {
-                        const bassFreq = freq / 4; 
-                        this.playPianoNote(bassFreq, 1.0, 0.05); 
-                    }
-
-                    step++;
-                }, beatDuration * 1000 * 0.5); 
-            },
-
-            playPianoNote: function(freq, duration, volume = 0.03) { // 音量调小不影响文字发音
-                const osc = this.ctx.createOscillator();
-                const osc2 = this.ctx.createOscillator(); 
-                const gain = this.ctx.createGain();
-                
-                osc.type = 'sine';
-                osc2.type = 'triangle'; 
-                
-                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                osc2.frequency.setValueAtTime(freq * 2, this.ctx.currentTime); 
-                
-                gain.gain.setValueAtTime(0, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + 0.02); 
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration + 0.5); 
-                
-                osc.connect(gain);
-                const gain2 = this.ctx.createGain();
-                gain2.gain.value = 0.3; 
-                osc2.connect(gain2);
-                gain2.connect(gain);
-
-                gain.connect(this.ctx.destination);
-                
-                osc.start();
-                osc2.start();
-                osc.stop(this.ctx.currentTime + duration + 1);
-                osc2.stop(this.ctx.currentTime + duration + 1);
-            },
-
-            stopBGM: function() {
-                this.isPlaying = false;
-                if(this.bgmInterval) clearInterval(this.bgmInterval);
-            }
-        };
-
-        // 保存一年级下册所有的大纲生字
-        const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
-
-        // 内置一年级常用字字典（全面扩充，严格保证映射准确，不再随机分配）
-        const charDictionary = {
-            // 自然现象/事物
-            '日': ['☀️', '🌞', '🌅'], '月': ['🌙', '🌛', '🌕'], '水': ['💧', '🌊', '💦'], '火': ['🔥', '🌋'], '山': ['⛰️', '🏔️'], '石': ['🪨', '💎'], '田': ['🌾', '🚜'], '土': ['🪴', '🧱'], '云': ['☁️', '🌥️'], '雨': ['🌧️', '☔'], '风': ['🌬️', '🍃'], '雪': ['❄️', '⛄'], '雷': ['⚡', '🌩️'], '电': ['⚡', '🔌'], '冰': ['🧊', '🍦'], '霜': ['❄️', '🧊'], '天': ['🌤️', '🌌'], '地': ['🌍', '🌱'], '星': ['⭐', '🌟'], '光': ['💡', '✨'], '虹': ['🌈'], '池': ['🪷', '⛲'], '泉': ['⛲', '💦'], '江': ['🏞️', '🌊'], '河': ['🏞️', '🌊'], '海': ['🌊', '🏖️'],
-            // 动植物
-            '牛': ['🐂', '🐄'], '羊': ['🐏', '🐑'], '马': ['🐎', '🐴'], '鱼': ['🐟', '🐠'], '鸟': ['🐦', '🕊️'], '虫': ['🐛', '🦋'], '象': ['🐘'], '蚂': ['🐜'], '蚁': ['🐜'], '蛛': ['🕷️'], '蛙': ['🐸'], '狗': ['🐶', '🐕'], '猫': ['🐱', '🐈'], '猪': ['🐷', '🐖'], '树': ['🌳', '🌲'], '草': ['🌿', '🌱'], '花': ['🌺', '🌻', '🌸'], '叶': ['🍃', '🍂'], '瓜': ['🍉', '🍈'], '果': ['🍎', '🍇'], '米': ['🍚', '🌾'], '豆': ['🫘', '🌱'], '萍': ['🪷', '🍃'],
-            // 季节/时间
-            '春': ['🌸', '🌱'], '夏': ['🍉', '☀️'], '秋': ['🍁', '🍂'], '冬': ['⛄', '❄️'], '年': ['📅', '🧨'], '时': ['⏰', '⌚'], '钟': ['⏰', '🕰️'], '晚': ['🌙', '🌃'], '夜': ['🌙', '🌃'], '晨': ['🌅', '早'], '夕': ['🌇', '晚'], '午': ['🕛', '☀️'],
-            // 人物/身体
-            '人': ['🚶', '🧍'], '男': ['👦', '👨'], '女': ['👧', '👩'], '爸': ['👨', '👔'], '妈': ['👩', '👗'], '哥': ['👦', '🧢'], '姐': ['👧', '🎀'], '弟': ['👶', '🍼'], '妹': ['👧', '🧸'], '我': ['🙋', '🧍'], '你': ['👉', '🧍'], '他': ['👦', '🧍'], '她': ['👧', '🧍'], '头': ['👤', '🗣️'], '口': ['👄', '🗣️'], '目': ['👁️', '👀'], '眼': ['👁️', '👀'], '睛': ['👁️', '👀'], '耳': ['👂', '🎧'], '手': ['🖐️', '👋'], '足': ['🦶', '🦵'], '脚': ['🦶', '👟'], '腿': ['🦵', '👖'], '身': ['🧍', '👤'], '体': ['💪', '🧍'], '鼻': ['👃'], '嘴': ['👄'], '臂': ['💪'], '肚': ['🤰', '腹'], '血': ['🩸', '💉'], '肉': ['🥩', '🍗'],
-            // 动作
-            '飞': ['🦅', '✈️'], '走': ['🚶', '👣'], '跑': ['🏃', '💨'], '跳': ['🤸', '🦘'], '爬': ['🦎', '🧗'], '游': ['🏊', '🐟'], '吃': ['🍔', '😋'], '喝': ['🥤', '🥛'], '咬': ['🦷', '🍎'], '叫': ['🗣️', '📣'], '说': ['💬', '🗣️'], '语': ['💬', '🗣️'], '讲': ['👨‍🏫', '💬'], '听': ['👂', '🎧'], '看': ['👀', '👁️'], '笑': ['😂', '😊'], '哭': ['😭', '😢'], '打': ['👊', '🥊'], '拍': ['👏', '🏓'], '拔': ['🥕', '💪'], '捉': ['🦋', '🤲'], '洗': ['🧼', '🚿'], '找': ['🔍', '👀'], '吹': ['🌬️', '😗'], '唱': ['🎤', '🎵'], '做': ['🛠️', '🎨'], '玩': ['🎮', '🧸'], '睡': ['😴', '🛌'], '坐': ['🪑', '🧘'], '立': ['🧍', '🕴️'], '入': ['🚪', '⬇️'], '出': ['🚪', '⬆️'], '开': ['🔓', '📖'], '关': ['🔒', '🚪'], '放': ['👐', '📦'], '浇': ['🚿', '🌻'], '提': ['🛍️', '👜'], '挑': ['🦯', '⚖️'], '拿': ['🤲', '🎁'], '落': ['🍂', '⬇️'], '降': ['⬇️', '🪂'],
-            // 物品/建筑
-            '书': ['📚', '📖'], '笔': ['✏️', '🖊️'], '纸': ['📄', '📜'], '车': ['🚗', '🚲'], '机': ['✈️', '📱'], '船': ['⛵', '🚢'], '床': ['🛏️', '🛋️'], '房': ['🏠', '🏢'], '家': ['🏠', '👨‍👩‍👦'], '门': ['🚪', '⛩️'], '窗': ['🪟'], '网': ['🕸️', '🥅'], '球': ['⚽', '🏀'], '裙': ['👗', '👘'], '衣': ['👕', '🧥'], '伞': ['☔', '🌂'], '包': ['🎒', '👜'], '面': ['🍜', '🍞'], '饭': ['🍚', '🍱'], '药': ['💊', '💉'], '镜': ['🪞', '👓'], '铅': ['✏️'],
-            // 颜色/形容词/方位
-            '红': ['🍎', '🔴'], '黄': ['🍋', '🟡'], '蓝': ['🐳', '🔵'], '绿': ['🍏', '🟢'], '白': ['☁️', '⚪'], '黑': ['🎱', '⚫'], '大': ['🐘', '🏢'], '小': ['🐜', '🐁'], '多': ['💯', '📚'], '少': ['🤏', '💧'], '高': ['⛰️', '🦒'], '低': ['⬇️', '👇'], '长': ['📏', '🦒'], '短': ['🩳', '🐛'], '圆': ['⭕', '🌕'], '方': ['🟩', '⬛'], '尖': ['🗡️', '📍'], '快': ['🚀', '🐆'], '慢': ['🐢', '🐌'], '远': ['🔭', '🛣️'], '近': ['🔍', '📍'], '明': ['💡', '☀️'], '暗': ['🌑', '🔦'], '上': ['⬆️', '👆'], '下': ['⬇️', '👇'], '左': ['⬅️', '👈'], '右': ['➡️', '👉'], '前': ['⬆️', '🚶'], '后': ['⬇️', '🚶'], '里': ['📦', '🏠'], '外': ['🏕️', '🚪'], '宽': ['↔️', '🛣️'],
-            // 抽象/概念/代词/助词 (用符号或相关意象准确表达)
-            '一': ['1️⃣', '☝️'], '二': ['2️⃣', '✌️'], '三': ['3️⃣', '🤟'], '四': ['4️⃣'], '五': ['5️⃣', '🖐️'], '六': ['6️⃣', '🤙'], '七': ['7️⃣'], '八': ['8️⃣'], '九': ['9️⃣'], '十': ['🔟', '➕'], '百': ['💯'], '千': ['1️⃣0️⃣0️⃣0️⃣'], '万': ['🌌', '✨'], '半': ['🌗', '🍕'], '心': ['❤️', '💖'], '气': ['☁️', '💨'], '音': ['🎵', '🎶'], '乐': ['🎵', '😄'], '病': ['🤒', '🏥'], '医': ['👨‍⚕️', '🏥'], '乡': ['🏡', '🌾'], '国': ['🇨🇳', '🗺️'], '王': ['👑'], '字': ['🔤', '✍️'], '词': ['🔠', '📖'], '句': ['📝', '💬'], '双': ['🥢', '♊'], '片': ['🧩', '🎫'], '条': ['〰️', '🥖'], '块': ['🧱', '🧊'], '朵': ['☁️', '🌸'], '座': ['⛰️', '🏛️'], '本': ['📖', '📚'], '册': ['📚', '📖'], '个': ['👤', '🍎'], '同': ['👯', '🤝'], '和': ['➕', '🤝'], '的': ['🎯', '✅'], '么': ['❓'], '什': ['❓'], '吗': ['❓'], '呢': ['❓'], '吧': ['💬', '🍵'], '呀': ['😮', '💬'], '啊': ['😲', '💬'], '谁': ['👤', '❓'], '这': ['👇', '👉'], '那': ['👉', '远'],
-            // 情绪
-            '喜': ['😄', '🥰'], '欢': ['🎉', '😊'], '怒': ['😡', '😤'], '哀': ['😭', '🥀'], '怕': ['😨', '👻'], '惊': ['😲', '😱'], '急': ['😰', '🏃']
-        };
-
-        const { pinyin } = pinyinPro; // 引入 pinyin-pro 库
-
-        const app = {
-            chars: [], // 当前学习的汉字数组
-            currentIndex: 0,
-            currentImageIndex: 0,
-            quizType: null, // 'image' 或 'pinyin'
-            score: 0,
-            currentMode: null, // 记录当前是在 'learn' 还是 'quiz' 模式
-            
-            // 全局背景音乐状态
-            bgmInitialized: false,
-            
-            // 初始化
-            init() {
-                document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
-                
-                // 初始化分阶段课文数据
-                this.initLessons();
-
-                // 监听第一次用户交互，顺畅开启合成音乐
-                const startAudioOnInteraction = () => {
-                    if (!this.bgmInitialized) {
-                        this.bgmInitialized = true;
-                        sound.init(); // 初始化音频上下文
-                        sound.playBGM(); // 开始播放程序合成的音乐
-                        
-                        document.getElementById('btn-bgm').innerText = '🎵';
-                        document.getElementById('btn-bgm').classList.remove('opacity-50');
-                        
-                        // 触发一次后即可移除监听
-                        document.removeEventListener('click', startAudioOnInteraction);
-                        document.removeEventListener('touchstart', startAudioOnInteraction);
-                    }
-                };
-                
-                document.addEventListener('click', startAudioOnInteraction);
-                document.addEventListener('touchstart', startAudioOnInteraction);
-            },
-
-            // 背景音乐切换
-            toggleBGM() {
-                this.bgmInitialized = true; // 标记已交互
-                const btn = document.getElementById('btn-bgm');
-                
-                if (!sound.isPlaying) {
-                    sound.playBGM();
-                    btn.innerText = '🎵';
-                    btn.classList.remove('opacity-50');
-                } else {
-                    sound.stopBGM();
-                    btn.innerText = '🔇';
-                    btn.classList.add('opacity-50');
+        // 发送策略：直连 → 代理1 → 代理2
+        async send(payload) {
+            // ✅ 策略1：直连（Resend 官方已开放 CORS，Cloudflare Pages 可用）
+            const strategies = [
+                {
+                    label: "直连 Resend API",
+                    url: this.TARGET_URL,
+                    headers: {
+                        "Authorization": `Bearer ${this.API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                },
+                // ✅ 策略2：corsproxy.io 代理（GitHub Pages 可用，部分 CF 环境也可用）
+                {
+                    label: "corsproxy.io 代理",
+                    url: "https://corsproxy.io/?" + encodeURIComponent(this.TARGET_URL),
+                    headers: {
+                        "Authorization": `Bearer ${this.API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                },
+                // ✅ 策略3：proxy.cors.sh（需要 x-cors-api-key，使用 test 临时密钥）
+                {
+                    label: "cors.sh 代理",
+                    url: "https://proxy.cors.sh/" + this.TARGET_URL,
+                    headers: {
+                        "Authorization": `Bearer ${this.API_KEY}`,
+                        "Content-Type": "application/json",
+                        "x-cors-api-key": "temp_abcde12345" // 公共测试 key，限速较宽松
+                    },
+                    body: JSON.stringify(payload)
                 }
-            },
+            ];
 
-            // --- 响应修改字数 ---
-            updateGroupSize() {
-                let val = parseInt(document.getElementById('chars-per-level').value);
-                if (isNaN(val) || val < 5) val = 5; // 限制最少 5 个字
-                if (val > 100) val = 100; // 限制最多 100 个字
-                document.getElementById('chars-per-level').value = val;
-                
-                // 动态更新提示文字
-                document.getElementById('hint-text').innerText = `每次 ${val} 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。`;
-                
-                this.initLessons(); // 重新生成关卡
-            },
+            let lastError = null;
 
-            // --- 分阶段分组逻辑 ---
-            initLessons() {
-                // 1. 去掉重复的字，确保每个字只学一次
-                const uniqueChars = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
-                
-                // 2. 获取用户设置的每关字数
-                const groupSize = parseInt(document.getElementById('chars-per-level').value) || 15; 
-                
-                const selectEl = document.getElementById('lesson-select');
-                selectEl.innerHTML = ''; // 清空下拉框
-                
-                // 3. 按照每组自定义字数进行切分并生成下拉选项
-                for (let i = 0; i < uniqueChars.length; i += groupSize) {
-                    const charsInGroup = uniqueChars.slice(i, i + groupSize).join('');
-                    const option = document.createElement('option');
-                    option.value = charsInGroup;
-                    const endNum = Math.min(i + groupSize, uniqueChars.length);
-                    option.innerText = `第 ${Math.floor(i / groupSize) + 1} 关 (进度 ${i + 1}~${endNum} 字)`;
-                    selectEl.appendChild(option);
-                }
-                
-                // 4. 页面加载/修改时自动填入第一关的字
-                this.changeLesson();
-            },
+            for (let i = 0; i < strategies.length; i++) {
+                const s = strategies[i];
+                try {
+                    console.log(`📤 尝试 [${s.label}]...`);
+                    const res = await fetch(s.url, {
+                        method: "POST",
+                        headers: s.headers,
+                        body: s.body
+                    });
 
-            // 当下拉菜单切换时，更新文本框内容
-            changeLesson() {
-                const selectEl = document.getElementById('lesson-select');
-                document.getElementById('input-chars').value = selectEl.value;
-            },
+                    let data = {};
+                    try { data = await res.json(); } catch(e) { data = { message: "非 JSON 响应" }; }
 
-            // 解析用户输入
-            parseInput() {
-                const text = document.getElementById('input-chars').value;
-                // 提取所有的中文字符
-                const regex = /[\u4e00-\u9fa5]/g;
-                const matches = text.match(regex);
-                if (!matches || matches.length === 0) {
-                    alert("请至少输入一个汉字哦！");
-                    return false;
-                }
-                // 去重
-                this.chars = [...new Set(matches)];
-                return true;
-            },
-
-            // 切换视图
-            switchView(viewId) {
-                document.getElementById('view-home').classList.add('hidden');
-                document.getElementById('view-learn').classList.add('hidden');
-                document.getElementById('view-quiz').classList.add('hidden');
-                document.getElementById('modal-success').classList.add('hidden');
-                
-                document.getElementById(viewId).classList.remove('hidden');
-                
-                // 显示/隐藏返回首页按钮
-                const backBtn = document.getElementById('btn-home-back');
-                if (viewId === 'view-home') {
-                    backBtn.classList.add('hidden');
-                } else {
-                    backBtn.classList.remove('hidden');
-                }
-            },
-
-            goHome() {
-                this.switchView('view-home');
-            },
-
-            // ---- 学习模式逻辑 ----
-            startLearning() {
-                if (!this.parseInput()) return;
-                this.currentMode = 'learn'; // 记录模式
-                this.currentIndex = 0;
-                this.currentImageIndex = 0;
-                this.switchView('view-learn');
-                this.renderLearnCard();
-            },
-
-            renderLearnCard() {
-                const char = this.chars[this.currentIndex];
-                const py = pinyin(char, { toneType: 'symbol' }); // 获取带声调的拼音
-                
-                document.getElementById('learn-char').innerText = char;
-                document.getElementById('learn-pinyin').innerText = py;
-                
-                // 更新图片
-                this.updateLearnImage(char);
-                
-                // 更新进度条
-                const progress = ((this.currentIndex + 1) / this.chars.length) * 100;
-                document.getElementById('learn-progress').style.width = `${progress}%`;
-
-                // 添加卡片动画
-                const card = document.getElementById('view-learn').querySelector('.bg-white');
-                card.classList.remove('bounce-in');
-                void card.offsetWidth; // 触发重绘
-                card.classList.add('bounce-in');
-
-                // 自动播放读音
-                this.playAudio();
-            },
-
-            updateLearnImage(char) {
-                let images = charDictionary[char];
-                if (!images) {
-                    // 如果字典里没有，显示通用的“文字”图标，避免产生错误的图片映射
-                    images = ['📝', '📖', '🔤'];
-                }
-                
-                // 确保图片索引不越界
-                this.currentImageIndex = this.currentImageIndex % images.length;
-                document.getElementById('learn-image').innerText = images[this.currentImageIndex];
-            },
-
-            nextImage() {
-                const char = this.chars[this.currentIndex];
-                let imgCount = charDictionary[char] ? charDictionary[char].length : 1;
-                
-                if (imgCount > 1) {
-                    this.currentImageIndex = (this.currentImageIndex + 1) % imgCount;
-                    this.updateLearnImage(char);
-                    
-                    // 添加小动画
-                    const imgEl = document.getElementById('learn-image');
-                    imgEl.style.transform = 'scale(0.8)';
-                    setTimeout(() => { imgEl.style.transform = 'scale(1)'; }, 150);
-                } else {
-                    // 即使只有一张图，点击时也给个弹性反馈动画，让孩子知道自己点到了
-                    const imgEl = document.getElementById('learn-image');
-                    imgEl.style.transform = 'scale(0.8)';
-                    setTimeout(() => { imgEl.style.transform = 'scale(1)'; }, 150);
-                }
-                
-                // 点击图片时，同时发出这个汉字的声音
-                this.playAudio();
-            },
-
-            nextChar() {
-                if (this.currentIndex < this.chars.length - 1) {
-                    this.currentIndex++;
-                    this.currentImageIndex = 0;
-                    this.renderLearnCard();
-                } else {
-                    this.showSuccess("所有的字都学完啦！快去测验一下吧！");
-                }
-            },
-
-            prevChar() {
-                if (this.currentIndex > 0) {
-                    this.currentIndex--;
-                    this.currentImageIndex = 0;
-                    this.renderLearnCard();
-                }
-            },
-
-            playAudio() {
-                let charToSpeak = "";
-                
-                // 判断当前在哪个视图，决定读哪个字，确保声音和显示的字绝对一致
-                if (!document.getElementById('view-learn').classList.contains('hidden')) {
-                    charToSpeak = this.chars[this.currentIndex];
-                } else if (!document.getElementById('view-quiz').classList.contains('hidden')) {
-                    charToSpeak = document.getElementById('quiz-char').innerText;
-                }
-
-                if (charToSpeak && 'speechSynthesis' in window) {
-                    // 取消当前正在播放的所有语音排队，防止连续点击时声音堆叠延迟
-                    window.speechSynthesis.cancel();
-                    
-                    const utterance = new SpeechSynthesisUtterance(charToSpeak);
-                    utterance.lang = 'zh-CN';
-                    utterance.rate = 0.8; // 稍微慢一点，适合小孩
-                    window.speechSynthesis.speak(utterance);
-                }
-            },
-
-            // ---- 测验模式逻辑 ----
-            startQuiz(type) {
-                if (!this.parseInput()) return;
-                
-                // 如果选择“看字找图”，严格过滤出字典里有明确图片的字，避免用抽象符号去出题
-                let availableChars = [...this.chars];
-                if (type === 'image') {
-                    availableChars = availableChars.filter(c => charDictionary[c]);
-                    if (availableChars.length < 4) {
-                        alert("你输入的字中，能找到准确图片的具体事物太少啦（至少需要4个）。我先带你玩“看字找音”吧！");
-                        this.startQuiz('pinyin');
-                        return;
-                    }
-                }
-
-                this.currentMode = 'quiz_' + type; // 记录模式
-                this.quizType = type;
-                this.currentIndex = 0;
-                this.score = 0;
-                
-                // 打乱题目顺序 (使用过滤后的可用字集)
-                this.quizSequence = [...availableChars].sort(() => Math.random() - 0.5);
-                
-                this.switchView('view-quiz');
-                
-                if (type === 'image') {
-                    document.getElementById('quiz-prompt').innerText = "哪一张图是它？";
-                } else {
-                    document.getElementById('quiz-prompt').innerText = "它的拼音是哪个？";
-                }
-
-                this.renderQuizQuestion();
-            },
-
-            renderQuizQuestion() {
-                if (this.currentIndex >= this.quizSequence.length) {
-                    // 修复了文案逻辑错误
-                    this.showSuccess(`太棒了！共完成 ${this.quizSequence.length} 道题，获得 ${this.score} 分！`);
-                    return;
-                }
-
-                const targetChar = this.quizSequence[this.currentIndex];
-                document.getElementById('quiz-char').innerText = targetChar;
-                document.getElementById('quiz-score').innerText = this.score;
-                document.getElementById('quiz-progress-text').innerText = `${this.currentIndex + 1}/${this.quizSequence.length}`;
-
-                // 生成选项
-                let options = [targetChar]; // 存放汉字
-                
-                // 找3个干扰项
-                let distractors = [...this.chars].filter(c => c !== targetChar);
-                distractors = distractors.sort(() => Math.random() - 0.5).slice(0, 3);
-                
-                // 如果不够3个干扰项（比如总字数少），从字典里补
-                if (distractors.length < 3) {
-                    // 对于找图游戏，补充的干扰项也必须是字典里有图片的
-                    let extraDict = Object.keys(charDictionary).filter(c => c !== targetChar && !distractors.includes(c));
-                    const extras = extraDict.sort(() => Math.random() - 0.5).slice(0, 3 - distractors.length);
-                    distractors.push(...extras);
-                }
-
-                options = options.concat(distractors);
-                options.sort(() => Math.random() - 0.5); // 打乱选项顺序
-
-                // 渲染选项按钮
-                const optionsContainer = document.getElementById('quiz-options');
-                optionsContainer.innerHTML = '';
-
-                options.forEach(optChar => {
-                    const btn = document.createElement('button');
-                    // 移除了 hover 的彩色边框，防止触摸屏点击后颜色残留；加上 focus:outline-none 禁用浏览器默认高亮
-                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[60px] flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
-                    
-                    // 根据测验类型显示不同内容
-                    if (this.quizType === 'image') {
-                        // 只从字典取真实含义图片
-                        let imgs = charDictionary[optChar] || ['📝'];
-                        btn.innerText = imgs[Math.floor(Math.random() * imgs.length)]; // 随机取该字的一张图
+                    if (res.ok) {
+                        console.log(`✅ [${s.label}] 发送成功！`, data);
+                        return { ok: true, data, strategy: s.label };
                     } else {
-                        btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
-                        btn.innerText = pinyin(optChar, { toneType: 'symbol' });
+                        console.warn(`⚠️ [${s.label}] HTTP ${res.status}:`, data.message);
+                        lastError = `HTTP ${res.status}: ${data.message || "未知错误"}`;
+                        // HTTP 4xx 说明请求格式有问题，没必要换代理，直接终止
+                        if (res.status >= 400 && res.status < 500) break;
                     }
-
-                    btn.onclick = () => this.handleQuizAnswer(optChar === targetChar, btn);
-                    optionsContainer.appendChild(btn);
-                });
-
-                // 自动读题
-                this.playAudio();
-                
-                // 动画
-                document.getElementById('quiz-char').parentElement.classList.remove('bounce-in');
-                void document.getElementById('quiz-char').parentElement.offsetWidth;
-                document.getElementById('quiz-char').parentElement.classList.add('bounce-in');
-            },
-
-            handleQuizAnswer(isCorrect, btnEl) {
-                if (isCorrect) {
-                    // 答对
-                    this.score += 10;
-                    btnEl.classList.add('bg-green-100', 'border-green-500');
-                    
-                    // 撒花特效
-                    confetti({
-                        particleCount: 50,
-                        spread: 60,
-                        origin: { y: 0.8 },
-                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
-                    });
-
-                    // 禁用所有按钮防止重复点击
-                    const btns = document.getElementById('quiz-options').querySelectorAll('button');
-                    btns.forEach(b => b.disabled = true);
-
-                    setTimeout(() => {
-                        this.currentIndex++;
-                        this.renderQuizQuestion();
-                    }, 1000);
-                } else {
-                    // 答错
-                    btnEl.classList.add('shake', 'bg-red-50', 'border-red-400');
-                    setTimeout(() => {
-                        btnEl.classList.remove('shake');
-                    }, 400);
-                    
-                    // 播放一个错误的音效 (简单的合成音)
-                    if ('speechSynthesis' in window) {
-                        const ut = new SpeechSynthesisUtterance("再想想哦");
-                        ut.lang = 'zh-CN';
-                        ut.rate = 1.2;
-                        window.speechSynthesis.speak(ut);
-                    }
-                }
-            },
-
-            // 显示成功结算界面
-            showSuccess(msg) {
-                document.getElementById('modal-msg').innerText = msg;
-                document.getElementById('modal-success').classList.remove('hidden');
-                
-                // 自动发送邮件报告给家长
-                this.sendEmailReport(false);
-                
-                // 大量撒花
-                const duration = 3 * 1000;
-                const end = Date.now() + duration;
-
-                (function frame() {
-                    confetti({
-                        particleCount: 5,
-                        angle: 60,
-                        spread: 55,
-                        origin: { x: 0 },
-                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
-                    });
-                    confetti({
-                        particleCount: 5,
-                        angle: 120,
-                        spread: 55,
-                        origin: { x: 1 },
-                        colors: ['#22c55e', '#ec4899', '#3b82f6', '#eab308']
-                    });
-
-                    if (Date.now() < end) {
-                        requestAnimationFrame(frame);
-                    }
-                }());
-            },
-
-            // 点击按钮手动测试发送邮件
-            testEmail() {
-                this.currentMode = 'test';
-                this.chars = ['测', '试', '邮', '件'];
-                this.sendEmailReport(true);
-            },
-
-            // --- 发送邮件报告功能 (防拦截增强版 V2.0) ---
-            async sendEmailReport(isTest = false) {
-                const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
-                let subject = "【识字小达人】学习报告";
-                let htmlContent = "";
-
-                const charsStr = this.chars.join('、');
-                const dateStr = new Date().toLocaleString('zh-CN');
-
-                // 根据不同的模式生成不同的邮件内容
-                if (this.currentMode === 'test') {
-                    subject = `🛠️ 测试邮件 - API连通性检测 - ${dateStr}`;
-                    htmlContent = `
-                        <h2>恭喜！这是一封测试邮件！</h2>
-                        <p>如果您能看到这封邮件，说明网页端的 API 请求（配合多重代理）已经完全正确且连通成功！</p>
-                        <p>这证明 Cloudflare Pages 的跨域拦截问题已被成功绕过。</p>
-                        <p>后续宝宝完成学习和测验后，会自动给您发送真实的成绩单，敬请期待。</p>
-                    `;
-                } else if (this.currentMode === 'learn') {
-                    subject = `✅ 学习完成报告 - ${dateStr}`;
-                    htmlContent = `
-                        <h2>🎉 宝宝完成了一组认字学习！</h2>
-                        <p><strong>时间：</strong>${dateStr}</p>
-                        <p><strong>学习模式：</strong>认字卡片阅读</p>
-                        <p><strong>本次共学习了 ${this.chars.length} 个字：</strong></p>
-                        <p style="font-size: 1.5em; color: #2563eb; font-weight: bold; padding: 10px; background: #eff6ff; border-radius: 8px;">
-                            ${charsStr}
-                        </p>
-                        <p style="color: #16a34a;">✨ 提示：可以引导宝宝进行一次测验来巩固记忆哦！</p>
-                    `;
-                } else {
-                    const quizName = this.currentMode === 'quiz_image' ? '看字找图' : '看字找音';
-                    subject = `🏆 测验成绩单 - ${dateStr}`;
-                    htmlContent = `
-                        <h2>🎉 宝宝完成了一次测验！</h2>
-                        <p><strong>时间：</strong>${dateStr}</p>
-                        <p><strong>测验类型：</strong>${quizName}</p>
-                        <p><strong>本次测验总题数：</strong>${this.quizSequence.length} 题</p>
-                        <p><strong>🔥 获得分数：</strong><span style="color: #ea580c; font-size: 1.8em; font-weight: bold;">${this.score}</span> 分</p>
-                        <p><strong>本次复习的字库：</strong></p>
-                        <p style="font-size: 1.2em; color: #4b5563; padding: 10px; background: #f3f4f6; border-radius: 8px;">
-                            ${charsStr}
-                        </p>
-                    `;
-                }
-
-                const targetUrl = "https://api.resend.com/emails";
-                
-                // 【核心修复 V2.0】重构多重代理池
-                // 解决 corsproxy.io 在 Cloudflare Pages 被内部防火墙当作恶意循环直接掐断的问题
-                const proxies = [
-                    "https://corsproxy.io/?" + encodeURIComponent(targetUrl),               // 节点1: 主节点 (在某些环境可能会被 CF 拦截)
-                    "https://cors-anywhere.herokuapp.com/" + targetUrl,                     // 节点2: 强力备用代理 (可能需要临时授权)
-                    targetUrl                                                               // 节点3: 直连兜底
-                ];
-
-                const payload = {
-                    from: 'onboarding@resend.dev',
-                    to: '479321347@qq.com',
-                    subject: subject,
-                    html: htmlContent
-                };
-
-                // 测试按钮加上交互等待反馈
-                const testBtn = document.querySelector('button[onclick="app.testEmail()"]');
-                if (isTest && testBtn) {
-                    testBtn.innerText = "⏳ 正在发送中...";
-                    testBtn.disabled = true;
-                }
-
-                let success = false;
-                let responseData = null;
-                let errorMsg = "";
-                let isNetworkFetchError = false;
-
-                // 循环尝试所有代理节点
-                for (let i = 0; i < proxies.length; i++) {
-                    try {
-                        const res = await fetch(proxies[i], {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${apiKey}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(payload)
-                        });
-
-                        try {
-                            responseData = await res.json();
-                        } catch (e) {
-                            responseData = { message: "代理返回非JSON数据格式" };
-                        }
-
-                        if (res.ok) {
-                            success = true;
-                            break; // 发送成功，立刻退出循环
-                        } else {
-                            errorMsg = responseData.message || "未知错误";
-                            console.warn(`代理节点 ${i+1} 发送失败:`, errorMsg);
-                        }
-                    } catch (err) {
-                        errorMsg = err.message;
-                        console.warn(`代理节点 ${i+1} 抛出网络异常:`, errorMsg);
-                        
-                        // 记录是否是典型的由于拦截导致的 Failed to fetch 错误
-                        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-                            isNetworkFetchError = true;
-                        }
-
-                        // 如果尝试到了 cors-anywhere，给予控制台提示
-                        if (i === 1 && proxies[i].includes('cors-anywhere')) {
-                            console.warn("提示：Heroku CORS 代理可能需要先在浏览器打开 https://cors-anywhere.herokuapp.com/corsdemo 获取临时授权");
-                        }
-                    }
-                }
-
-                // 恢复测试按钮状态
-                if (isTest && testBtn) {
-                    testBtn.innerText = "✉️ 测试发送邮件";
-                    testBtn.disabled = false;
-                }
-
-                // 最终结果播报与精准错误诊断
-                if (success) {
-                    console.log("✅ 学习报告已成功自动发送:", responseData);
-                    if (isTest) alert("🎉 邮件发送成功！\n请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\n\nAPI 响应ID: " + responseData.id);
-                } else {
-                    console.error("❌ 学习报告发送失败:", errorMsg);
-                    
-                    if (isTest) {
-                        if (isNetworkFetchError) {
-                            // 针对由于广告拦截器或 CF 防火墙导致的跨域拦截，给出明确的排查建议
-                            alert(
-                                "⚠️ 邮件发送失败！(Failed to fetch)\n\n" +
-                                "👉 原因分析：\n" +
-                                "1. 您的浏览器安装了广告拦截插件（如 AdBlock/uBlock 等）或开启了隐私护盾（Brave浏览器），把发信接口当成追踪脚本拦截了。\n" +
-                                "2. Cloudflare Pages 的安全机制拦截了网页发起的跨域代理请求。\n\n" +
-                                "🛠️ 解决建议：\n" +
-                                "请尝试【暂时关闭此页面的广告/隐私拦截插件】，然后再点一次测试发送。"
-                            );
-                        } else {
-                            alert("⚠️ 邮件发送失败！\nAPI 拒绝了请求，最后错误原因：" + errorMsg);
-                        }
-                    }
+                } catch (err) {
+                    console.warn(`❌ [${s.label}] 网络异常:`, err.message);
+                    lastError = err.message;
+                    // 继续尝试下一个策略
                 }
             }
-        };
 
-        // 启动应用
-        window.onload = () => {
-            app.init();
-        };
+            return { ok: false, error: lastError };
+        }
+    };
+
+    // ===================== 主应用逻辑 =====================
+    const app = {
+        chars: [], currentIndex: 0, currentImageIndex: 0,
+        quizType: null, score: 0, currentMode: null,
+        quizSequence: [], bgmInitialized: false,
+
+        init() {
+            document.getElementById('btn-home-back').addEventListener('click', () => this.goHome());
+            this.initLessons();
+
+            const startAudio = () => {
+                if (!this.bgmInitialized) {
+                    this.bgmInitialized = true;
+                    sound.init(); sound.playBGM();
+                    document.getElementById('btn-bgm').innerText = '🎵';
+                    document.getElementById('btn-bgm').classList.remove('opacity-50');
+                    document.removeEventListener('click', startAudio);
+                    document.removeEventListener('touchstart', startAudio);
+                }
+            };
+            document.addEventListener('click', startAudio);
+            document.addEventListener('touchstart', startAudio);
+        },
+
+        toggleBGM() {
+            this.bgmInitialized = true;
+            const btn = document.getElementById('btn-bgm');
+            if (!sound.isPlaying) { sound.playBGM(); btn.innerText = '🎵'; btn.classList.remove('opacity-50'); }
+            else { sound.stopBGM(); btn.innerText = '🔇'; btn.classList.add('opacity-50'); }
+        },
+
+        updateGroupSize() {
+            let v = parseInt(document.getElementById('chars-per-level').value);
+            if (isNaN(v) || v < 5) v = 5; if (v > 100) v = 100;
+            document.getElementById('chars-per-level').value = v;
+            document.getElementById('hint-text').innerText = `每次 ${v} 个字左右，保护眼睛不劳累！如果觉得太难，可以手动删掉几个字哦。`;
+            this.initLessons();
+        },
+
+        initLessons() {
+            const unique = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
+            const gs = parseInt(document.getElementById('chars-per-level').value) || 15;
+            const sel = document.getElementById('lesson-select');
+            sel.innerHTML = '';
+            for (let i = 0; i < unique.length; i += gs) {
+                const chars = unique.slice(i, i + gs).join('');
+                const opt = document.createElement('option');
+                opt.value = chars;
+                opt.innerText = `第 ${Math.floor(i/gs)+1} 关 (进度 ${i+1}~${Math.min(i+gs, unique.length)} 字)`;
+                sel.appendChild(opt);
+            }
+            this.changeLesson();
+        },
+
+        changeLesson() {
+            document.getElementById('input-chars').value = document.getElementById('lesson-select').value;
+        },
+
+        parseInput() {
+            const m = document.getElementById('input-chars').value.match(/[\u4e00-\u9fa5]/g);
+            if (!m || m.length === 0) { alert("请至少输入一个汉字哦！"); return false; }
+            this.chars = [...new Set(m)]; return true;
+        },
+
+        switchView(id) {
+            ['view-home','view-learn','view-quiz','modal-success'].forEach(v => document.getElementById(v).classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById('btn-home-back').classList.toggle('hidden', id === 'view-home');
+        },
+
+        goHome() { this.switchView('view-home'); },
+
+        startLearning() {
+            if (!this.parseInput()) return;
+            this.currentMode = 'learn'; this.currentIndex = 0; this.currentImageIndex = 0;
+            this.switchView('view-learn'); this.renderLearnCard();
+        },
+
+        renderLearnCard() {
+            const c = this.chars[this.currentIndex];
+            document.getElementById('learn-char').innerText = c;
+            document.getElementById('learn-pinyin').innerText = pinyin(c, { toneType: 'symbol' });
+            this.updateLearnImage(c);
+            document.getElementById('learn-progress').style.width = `${((this.currentIndex+1)/this.chars.length)*100}%`;
+            const card = document.getElementById('view-learn').querySelector('.bg-white');
+            card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
+            this.playAudio();
+        },
+
+        updateLearnImage(c) {
+            const imgs = charDictionary[c] || ['📝','📖','🔤'];
+            this.currentImageIndex = this.currentImageIndex % imgs.length;
+            document.getElementById('learn-image').innerText = imgs[this.currentImageIndex];
+        },
+
+        nextImage() {
+            const c = this.chars[this.currentIndex];
+            const cnt = charDictionary[c] ? charDictionary[c].length : 1;
+            if (cnt > 1) this.currentImageIndex = (this.currentImageIndex + 1) % cnt;
+            this.updateLearnImage(c);
+            const el = document.getElementById('learn-image');
+            el.style.transform = 'scale(0.8)'; setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
+            this.playAudio();
+        },
+
+        nextChar() {
+            if (this.currentIndex < this.chars.length - 1) { this.currentIndex++; this.currentImageIndex = 0; this.renderLearnCard(); }
+            else this.showSuccess("所有的字都学完啦！快去测验一下吧！");
+        },
+
+        prevChar() {
+            if (this.currentIndex > 0) { this.currentIndex--; this.currentImageIndex = 0; this.renderLearnCard(); }
+        },
+
+        playAudio() {
+            let c = "";
+            if (!document.getElementById('view-learn').classList.contains('hidden')) c = this.chars[this.currentIndex];
+            else if (!document.getElementById('view-quiz').classList.contains('hidden')) c = document.getElementById('quiz-char').innerText;
+            if (c && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(c);
+                u.lang = 'zh-CN'; u.rate = 0.8;
+                window.speechSynthesis.speak(u);
+            }
+        },
+
+        startQuiz(type) {
+            if (!this.parseInput()) return;
+            let avail = [...this.chars];
+            if (type === 'image') {
+                avail = avail.filter(c => charDictionary[c]);
+                if (avail.length < 4) { alert("能找到准确图片的字太少（至少4个），改为"看字找音"模式！"); this.startQuiz('pinyin'); return; }
+            }
+            this.currentMode = 'quiz_' + type; this.quizType = type;
+            this.currentIndex = 0; this.score = 0;
+            this.quizSequence = [...avail].sort(() => Math.random() - 0.5);
+            this.switchView('view-quiz');
+            document.getElementById('quiz-prompt').innerText = type === 'image' ? "哪一张图是它？" : "它的拼音是哪个？";
+            this.renderQuizQuestion();
+        },
+
+        renderQuizQuestion() {
+            if (this.currentIndex >= this.quizSequence.length) {
+                this.showSuccess(`太棒了！共完成 ${this.quizSequence.length} 道题，获得 ${this.score} 分！`); return;
+            }
+            const target = this.quizSequence[this.currentIndex];
+            document.getElementById('quiz-char').innerText = target;
+            document.getElementById('quiz-score').innerText = this.score;
+            document.getElementById('quiz-progress-text').innerText = `${this.currentIndex+1}/${this.quizSequence.length}`;
+
+            let opts = [target];
+            let dist = [...this.chars].filter(c => c !== target).sort(() => Math.random() - 0.5).slice(0, 3);
+            if (dist.length < 3) {
+                const extra = Object.keys(charDictionary).filter(c => c !== target && !dist.includes(c)).sort(() => Math.random() - 0.5).slice(0, 3 - dist.length);
+                dist.push(...extra);
+            }
+            opts = opts.concat(dist).sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('quiz-options');
+            container.innerHTML = '';
+            opts.forEach(oc => {
+                const btn = document.createElement('button');
+                if (this.quizType === 'image') {
+                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[60px] flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
+                    const imgs = charDictionary[oc] || ['📝'];
+                    btn.innerText = imgs[Math.floor(Math.random() * imgs.length)];
+                } else {
+                    btn.className = "bg-white border-2 border-gray-200 rounded-2xl h-32 text-[40px] font-sans flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none";
+                    btn.innerText = pinyin(oc, { toneType: 'symbol' });
+                }
+                btn.onclick = () => this.handleQuizAnswer(oc === target, btn);
+                container.appendChild(btn);
+            });
+
+            this.playAudio();
+            const charBox = document.getElementById('quiz-char').parentElement;
+            charBox.classList.remove('bounce-in'); void charBox.offsetWidth; charBox.classList.add('bounce-in');
+        },
+
+        handleQuizAnswer(correct, btn) {
+            if (correct) {
+                this.score += 10;
+                btn.classList.add('bg-green-100', 'border-green-500');
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                document.getElementById('quiz-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                setTimeout(() => { this.currentIndex++; this.renderQuizQuestion(); }, 1000);
+            } else {
+                btn.classList.add('shake', 'bg-red-50', 'border-red-400');
+                setTimeout(() => btn.classList.remove('shake'), 400);
+                if ('speechSynthesis' in window) {
+                    const u = new SpeechSynthesisUtterance("再想想哦");
+                    u.lang = 'zh-CN'; u.rate = 1.2; window.speechSynthesis.speak(u);
+                }
+            }
+        },
+
+        showSuccess(msg) {
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('modal-success').classList.remove('hidden');
+            this.sendEmailReport(false);
+            const end = Date.now() + 3000;
+            (function frame() {
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#22c55e','#ec4899','#3b82f6','#eab308'] });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            })();
+        },
+
+        // ---- 邮件状态展示 ----
+        showEmailStatus(type, msg) {
+            const el = document.getElementById('email-status');
+            el.classList.remove('hidden', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700', 'bg-yellow-100', 'text-yellow-700');
+            if (type === 'loading') { el.classList.add('bg-yellow-100', 'text-yellow-700'); el.innerText = msg; }
+            else if (type === 'success') { el.classList.add('bg-green-100', 'text-green-700'); el.innerText = msg; }
+            else { el.classList.add('bg-red-100', 'text-red-700'); el.innerText = msg; }
+            el.classList.remove('hidden');
+            // 成功/失败 5 秒后自动隐藏
+            if (type !== 'loading') setTimeout(() => el.classList.add('hidden'), 5000);
+        },
+
+        // ---- 手动测试发送 ----
+        testEmail() {
+            this.currentMode = 'test';
+            this.chars = ['测','试','邮','件'];
+            this.sendEmailReport(true);
+        },
+
+        // ---- 核心邮件发送（修复 CF Pages 版 V2.1）----
+        async sendEmailReport(isTest = false) {
+            const charsStr = this.chars.join('、');
+            const dateStr = new Date().toLocaleString('zh-CN');
+            let subject = "", htmlContent = "";
+
+            if (this.currentMode === 'test') {
+                subject = `🛠️ 测试邮件 - ${dateStr}`;
+                htmlContent = `<h2>✅ 邮件连通性测试成功！</h2><p>时间：${dateStr}</p><p>这封邮件说明 API 直连（或代理兜底）正常工作。后续宝宝完成学习后会自动发送成绩单！</p>`;
+            } else if (this.currentMode === 'learn') {
+                subject = `✅ 学习完成 - ${dateStr}`;
+                htmlContent = `<h2>🎉 宝宝完成了认字学习！</h2><p><strong>时间：</strong>${dateStr}</p><p><strong>学了 ${this.chars.length} 个字：</strong></p><p style="font-size:1.5em;color:#2563eb;font-weight:bold;padding:10px;background:#eff6ff;border-radius:8px;">${charsStr}</p><p style="color:#16a34a;">✨ 可以引导宝宝做一次测验巩固记忆哦！</p>`;
+            } else {
+                const name = this.currentMode === 'quiz_image' ? '看字找图' : '看字找音';
+                subject = `🏆 测验成绩单 - ${dateStr}`;
+                htmlContent = `<h2>🎉 宝宝完成了测验！</h2><p><strong>时间：</strong>${dateStr}</p><p><strong>类型：</strong>${name}</p><p><strong>题数：</strong>${this.quizSequence ? this.quizSequence.length : '?'} 题</p><p><strong>🔥 得分：</strong><span style="color:#ea580c;font-size:1.8em;font-weight:bold;">${this.score}</span> 分</p><p><strong>字库：</strong></p><p style="font-size:1.2em;color:#4b5563;padding:10px;background:#f3f4f6;border-radius:8px;">${charsStr}</p>`;
+            }
+
+            const payload = { from: "onboarding@resend.dev", to: "479321347@qq.com", subject, html: htmlContent };
+
+            // 更新 UI 状态
+            const btn = document.getElementById('btn-test-email');
+            if (isTest) {
+                btn.disabled = true;
+                btn.innerText = "⏳ 发送中...";
+                this.showEmailStatus('loading', '⏳ 正在尝试发送，请稍候...');
+            }
+
+            const result = await emailSender.send(payload);
+
+            if (isTest) {
+                btn.disabled = false;
+                btn.innerText = "✉️ 测试发送邮件";
+            }
+
+            if (result.ok) {
+                if (isTest) {
+                    this.showEmailStatus('success', `✅ 发送成功！(${result.strategy}) 请查看 QQ 邮箱（含垃圾箱）`);
+                }
+                console.log("✅ 邮件发送成功，策略：" + result.strategy);
+            } else {
+                if (isTest) {
+                    this.showEmailStatus('error', `❌ 三种方式均失败：${result.error}\n请关闭广告拦截插件后重试`);
+                }
+                console.error("❌ 所有邮件策略均失败：", result.error);
+            }
+        }
+    };
+
+    window.onload = () => app.init();
     </script>
 </body>
 </html>
