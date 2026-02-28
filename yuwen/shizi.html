@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -306,6 +305,7 @@
             currentImageIndex: 0,
             quizType: null, // 'image' 或 'pinyin'
             score: 0,
+            currentMode: null, // 新增：记录当前是在 'learn' 还是 'quiz' 模式
             
             // 全局背景音乐状态
             bgmInitialized: false,
@@ -421,6 +421,7 @@
             // ---- 学习模式逻辑 ----
             startLearning() {
                 if (!this.parseInput()) return;
+                this.currentMode = 'learn'; // 记录模式
                 this.currentIndex = 0;
                 this.currentImageIndex = 0;
                 this.switchView('view-learn');
@@ -540,6 +541,7 @@
                     }
                 }
 
+                this.currentMode = 'quiz_' + type; // 记录模式
                 this.quizType = type;
                 this.currentIndex = 0;
                 this.score = 0;
@@ -664,6 +666,9 @@
                 document.getElementById('modal-msg').innerText = msg;
                 document.getElementById('modal-success').classList.remove('hidden');
                 
+                // 自动发送邮件报告给家长
+                this.sendEmailReport();
+                
                 // 大量撒花
                 const duration = 3 * 1000;
                 const end = Date.now() + duration;
@@ -688,6 +693,62 @@
                         requestAnimationFrame(frame);
                     }
                 }());
+            },
+
+            // --- 新增：发送邮件报告功能 (调用 Resend API) ---
+            sendEmailReport() {
+                const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
+                let subject = "【识字小达人】学习报告";
+                let htmlContent = "";
+
+                const charsStr = this.chars.join('、');
+                const dateStr = new Date().toLocaleString('zh-CN');
+
+                // 根据不同的模式生成不同的邮件内容
+                if (this.currentMode === 'learn') {
+                    subject = `✅ 学习完成报告 - ${dateStr}`;
+                    htmlContent = `
+                        <h2>🎉 宝宝完成了一组认字学习！</h2>
+                        <p><strong>时间：</strong>${dateStr}</p>
+                        <p><strong>学习模式：</strong>认字卡片阅读</p>
+                        <p><strong>本次共学习了 ${this.chars.length} 个字：</strong></p>
+                        <p style="font-size: 1.5em; color: #2563eb; font-weight: bold; padding: 10px; background: #eff6ff; border-radius: 8px;">
+                            ${charsStr}
+                        </p>
+                        <p style="color: #16a34a;">✨ 提示：可以引导宝宝进行一次测验来巩固记忆哦！</p>
+                    `;
+                } else {
+                    const quizName = this.currentMode === 'quiz_image' ? '看字找图' : '看字找音';
+                    subject = `🏆 测验成绩单 - ${dateStr}`;
+                    htmlContent = `
+                        <h2>🎉 宝宝完成了一次测验！</h2>
+                        <p><strong>时间：</strong>${dateStr}</p>
+                        <p><strong>测验类型：</strong>${quizName}</p>
+                        <p><strong>本次测验总题数：</strong>${this.quizSequence.length} 题</p>
+                        <p><strong>🔥 获得分数：</strong><span style="color: #ea580c; font-size: 1.8em; font-weight: bold;">${this.score}</span> 分</p>
+                        <p><strong>本次复习的字库：</strong></p>
+                        <p style="font-size: 1.2em; color: #4b5563; padding: 10px; background: #f3f4f6; border-radius: 8px;">
+                            ${charsStr}
+                        </p>
+                    `;
+                }
+
+                // 在浏览器直接发送 POST 请求调用 API
+                fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: 'onboarding@resend.dev',
+                        to: '479321347@qq.com',
+                        subject: subject,
+                        html: htmlContent
+                    })
+                }).then(res => res.json())
+                  .then(data => console.log("✅ 学习报告已成功自动发送至您的 QQ 邮箱:", data))
+                  .catch(err => console.error("❌ 学习报告发送失败:", err));
             }
         };
 
