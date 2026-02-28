@@ -3,18 +3,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V1.5 (最新完整版)
+      版本：V1.6 (添加版本号与邮件测试)
       更新内容：
-      1. 新增：自动邮件报告。学习或测验完成后，调用 Resend API 自动向家长邮箱发送学习成绩单。
-      2. 新增：分阶段闯关模式。将大纲所有生字按 15 个字一组切分，提供下拉框选择，防止孩子疲劳。
-      3. 修复：彻底去除了按钮在移动端/触摸屏上点击后残留的颜色边框 (加入了 focus:outline-none)。
-      4. 优化：字图严格映射。扩充了精准的 Emoji 字典，测验时自动过滤掉没有对应图片的抽象字，绝不乱配图。
-      5. 优化：Web Audio 纯代码合成轻音乐。完美绕过浏览器对 mp3 外部链接的拦截和跨域限制。
+      1. UI更新：在页面头部标题旁新增了可见的 `v1.6` 版本号徽章，方便版本控制。
+      2. 调试功能：首页底部新增“测试发送邮件”按钮，并加入了 alert() 弹窗反馈。可以直观看到接口返回成功还是因为跨域/密钥问题被拦截。
+      3. 历史更新(V1.5)：自动邮件报告、分阶段闯关模式、移除边框残留、字图严格映射、Web Audio 纯代码合成轻音乐。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习</title>
+    <title>识字小达人 - 一年级语文学习 v1.6</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 拼音库 -->
@@ -88,8 +86,9 @@
                 🏠
             </button>
             
-            <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
+            <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.6</span>
             </h1>
             
             <!-- 全局音乐开关 -->
@@ -121,11 +120,17 @@
                 <button onclick="app.startLearning()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-[0_0px_0_#2563eb] active:translate-y-[6px] transition-all">
                     📖 开始学习
                 </button>
-                <button onclick="app.startQuiz('image')" class="bg-pink-500 hover:bg-pink-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#db2777] active:shadow-[0_0px_0_#db2777] active:translate-y-[6px] transition-all">
-                    🖼️ 看字找图 (测验)
-                </button>
-                <button onclick="app.startQuiz('pinyin')" class="bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#9333ea] active:shadow-[0_0px_0_#9333ea] active:translate-y-[6px] transition-all">
-                    🔤 看字找音 (测验)
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="app.startQuiz('image')" class="bg-pink-500 hover:bg-pink-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#db2777] active:shadow-[0_0px_0_#db2777] active:translate-y-[6px] transition-all">
+                        🖼️ 找图
+                    </button>
+                    <button onclick="app.startQuiz('pinyin')" class="bg-purple-500 hover:bg-purple-600 text-white text-xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#9333ea] active:shadow-[0_0px_0_#9333ea] active:translate-y-[6px] transition-all">
+                        🔤 找音
+                    </button>
+                </div>
+                <!-- V1.6 新增：邮件测试按钮 -->
+                <button onclick="app.testEmail()" class="bg-gray-400 hover:bg-gray-500 text-white text-lg font-bold py-3 rounded-2xl shadow-[0_4px_0_#4b5563] active:shadow-[0_0px_0_#4b5563] active:translate-y-[4px] transition-all">
+                    ✉️ 测试发送邮件
                 </button>
             </div>
         </div>
@@ -316,7 +321,7 @@
             currentImageIndex: 0,
             quizType: null, // 'image' 或 'pinyin'
             score: 0,
-            currentMode: null, // 新增：记录当前是在 'learn' 还是 'quiz' 模式
+            currentMode: null, // 记录当前是在 'learn' 还是 'quiz' 模式
             
             // 全局背景音乐状态
             bgmInitialized: false,
@@ -678,7 +683,7 @@
                 document.getElementById('modal-success').classList.remove('hidden');
                 
                 // 自动发送邮件报告给家长
-                this.sendEmailReport();
+                this.sendEmailReport(false);
                 
                 // 大量撒花
                 const duration = 3 * 1000;
@@ -706,8 +711,15 @@
                 }());
             },
 
+            // V1.6 新增：点击按钮手动测试发送邮件
+            testEmail() {
+                this.currentMode = 'test';
+                this.chars = ['测', '试', '邮', '件'];
+                this.sendEmailReport(true);
+            },
+
             // --- 发送邮件报告功能 (调用 Resend API) ---
-            sendEmailReport() {
+            sendEmailReport(isTest = false) {
                 const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
                 let subject = "【识字小达人】学习报告";
                 let htmlContent = "";
@@ -716,7 +728,14 @@
                 const dateStr = new Date().toLocaleString('zh-CN');
 
                 // 根据不同的模式生成不同的邮件内容
-                if (this.currentMode === 'learn') {
+                if (this.currentMode === 'test') {
+                    subject = `🛠️ 测试邮件 - API连通性检测 - ${dateStr}`;
+                    htmlContent = `
+                        <h2>恭喜！这是一封测试邮件！</h2>
+                        <p>如果您能看到这封邮件，说明网页端的 Resend API 请求配置完全正确且连通成功！</p>
+                        <p>后续宝宝完成学习和测验后，会自动给您发送真实的成绩单，敬请期待。</p>
+                    `;
+                } else if (this.currentMode === 'learn') {
                     subject = `✅ 学习完成报告 - ${dateStr}`;
                     htmlContent = `
                         <h2>🎉 宝宝完成了一组认字学习！</h2>
@@ -757,9 +776,19 @@
                         subject: subject,
                         html: htmlContent
                     })
-                }).then(res => res.json())
-                  .then(data => console.log("✅ 学习报告已成功自动发送至您的 QQ 邮箱:", data))
-                  .catch(err => console.error("❌ 学习报告发送失败:", err));
+                }).then(async res => {
+                    const data = await res.json();
+                    if (res.ok) {
+                        console.log("✅ 学习报告已成功自动发送至您的 QQ 邮箱:", data);
+                        if (isTest) alert("邮件发送成功！请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\nAPI 响应ID: " + data.id);
+                    } else {
+                        console.error("❌ 学习报告发送失败:", data);
+                        if (isTest) alert("邮件发送被拦截！错误原因：\n" + data.message + "\n\n(注意：部分 API 服务商禁止前端页面直接发信跨域请求，建议将此逻辑放到后端)");
+                    }
+                }).catch(err => {
+                    console.error("❌ 网络请求异常:", err);
+                    if (isTest) alert("发生网络错误或浏览器拦截了跨域请求(CORS)：\n" + err.message);
+                });
             }
         };
 
