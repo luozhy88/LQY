@@ -3,16 +3,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V1.9 (解决多平台部署发信失败的问题)
+      版本：V2.0 (多平台部署 & 强力防拦截更新)
       更新内容：
-      1. 核心修复：加入了“多重代理自动重试 (Fallback)”机制。解决 Cloudflare Pages 部署时由于 CF 内部回源限制导致的 Failed to fetch 拦截问题。
-      2. 优化：测试发送按钮新增了“发送中...”的加载状态，防止重复点击。
-      3. UI更新：版本号升级为 v1.9。
+      1. 核心修复：重构了代理池机制。专门针对 Cloudflare Pages 部署时导致的内部回源拦截 (Failed to fetch) 进行了代理节点替换。
+      2. 优化：新增精准的错误诊断弹窗。当遭遇浏览器广告拦截器 (AdBlock/uBlock) 或跨域拦截时，给出明确的中文排查指导，而不是干巴巴的英文报错。
+      3. UI更新：版本号升级为 v2.0。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v1.9</title>
+    <title>识字小达人 - 一年级语文学习 v2.0</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 拼音库 -->
@@ -88,7 +88,7 @@
             
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.9</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v2.0</span>
             </h1>
             
             <!-- 全局音乐开关 -->
@@ -744,7 +744,7 @@
                 this.sendEmailReport(true);
             },
 
-            // --- 发送邮件报告功能 (多节点回源机制 V1.9) ---
+            // --- 发送邮件报告功能 (防拦截增强版 V2.0) ---
             async sendEmailReport(isTest = false) {
                 const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
                 let subject = "【识字小达人】学习报告";
@@ -792,14 +792,12 @@
 
                 const targetUrl = "https://api.resend.com/emails";
                 
-                // 【核心修复】多重代理自动重试通道
-                // 由于 corsproxy.io 也部署在 Cloudflare。当你的网站同样部署在 Cloudflare Pages 时，
-                // CF 防火墙为防死循环会直接切断请求（导致 Failed to fetch）。
-                // 所以在这里我们配置了非 Cloudflare 的备用代理节点，当前一个失败时，它会自动切换到下一个继续重发。
+                // 【核心修复 V2.0】重构多重代理池
+                // 解决 corsproxy.io 在 Cloudflare Pages 被内部防火墙当作恶意循环直接掐断的问题
                 const proxies = [
-                    "https://corsproxy.io/?" + encodeURIComponent(targetUrl),               // 节点1（主用，部分平台可能被拦截）
-                    "https://thingproxy.freeboard.io/fetch/" + targetUrl,                   // 节点2（备用非CF节点）
-                    targetUrl                                                               // 直连节点（作为终极托底）
+                    "https://corsproxy.io/?" + encodeURIComponent(targetUrl),               // 节点1: 主节点 (在某些环境可能会被 CF 拦截)
+                    "https://cors-anywhere.herokuapp.com/" + targetUrl,                     // 节点2: 强力备用代理 (可能需要临时授权)
+                    targetUrl                                                               // 节点3: 直连兜底
                 ];
 
                 const payload = {
@@ -819,6 +817,7 @@
                 let success = false;
                 let responseData = null;
                 let errorMsg = "";
+                let isNetworkFetchError = false;
 
                 // 循环尝试所有代理节点
                 for (let i = 0; i < proxies.length; i++) {
@@ -840,7 +839,7 @@
 
                         if (res.ok) {
                             success = true;
-                            break; // 只要有一个节点发送成功，立刻退出循环不再重试
+                            break; // 发送成功，立刻退出循环
                         } else {
                             errorMsg = responseData.message || "未知错误";
                             console.warn(`代理节点 ${i+1} 发送失败:`, errorMsg);
@@ -848,7 +847,16 @@
                     } catch (err) {
                         errorMsg = err.message;
                         console.warn(`代理节点 ${i+1} 抛出网络异常:`, errorMsg);
-                        // 被浏览器拦截（Failed to fetch），循环自动继续，用下一个节点发
+                        
+                        // 记录是否是典型的由于拦截导致的 Failed to fetch 错误
+                        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+                            isNetworkFetchError = true;
+                        }
+
+                        // 如果尝试到了 cors-anywhere，给予控制台提示
+                        if (i === 1 && proxies[i].includes('cors-anywhere')) {
+                            console.warn("提示：Heroku CORS 代理可能需要先在浏览器打开 https://cors-anywhere.herokuapp.com/corsdemo 获取临时授权");
+                        }
                     }
                 }
 
@@ -858,13 +866,28 @@
                     testBtn.disabled = false;
                 }
 
-                // 最终结果播报
+                // 最终结果播报与精准错误诊断
                 if (success) {
                     console.log("✅ 学习报告已成功自动发送:", responseData);
                     if (isTest) alert("🎉 邮件发送成功！\n请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\n\nAPI 响应ID: " + responseData.id);
                 } else {
                     console.error("❌ 学习报告发送失败:", errorMsg);
-                    if (isTest) alert("⚠️ 邮件发送失败！\n已尝试所有备用代理节点，依然被拦截。\n最后错误原因：" + errorMsg);
+                    
+                    if (isTest) {
+                        if (isNetworkFetchError) {
+                            // 针对由于广告拦截器或 CF 防火墙导致的跨域拦截，给出明确的排查建议
+                            alert(
+                                "⚠️ 邮件发送失败！(Failed to fetch)\n\n" +
+                                "👉 原因分析：\n" +
+                                "1. 您的浏览器安装了广告拦截插件（如 AdBlock/uBlock 等）或开启了隐私护盾（Brave浏览器），把发信接口当成追踪脚本拦截了。\n" +
+                                "2. Cloudflare Pages 的安全机制拦截了网页发起的跨域代理请求。\n\n" +
+                                "🛠️ 解决建议：\n" +
+                                "请尝试【暂时关闭此页面的广告/隐私拦截插件】，然后再点一次测试发送。"
+                            );
+                        } else {
+                            alert("⚠️ 邮件发送失败！\nAPI 拒绝了请求，最后错误原因：" + errorMsg);
+                        }
+                    }
                 }
             }
         };
