@@ -56,8 +56,8 @@
             <div>
                 <label class="block text-lg font-bold text-yellow-800 mb-1">🎮 测验模式：</label>
                 <select id="quiz-mode-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none">
-                    <option value="image">看字找图/词（默认）</option>
-                    <option value="pinyin">看字找拼音</option>
+                    <option value="pinyin" selected>看字找拼音（默认）</option>
+                    <option value="image">看字找图/词</option>
                 </select>
             </div>
             <div>
@@ -326,7 +326,7 @@ function renderDisplayItem(str, el, isLarge=true){
 const app={
     allCharsInSession:[], charsToLearn:[], failedChars:[],
     currentIndex:0, currentStep:0, score:0,
-    quizSequence:[], currentQuizMode:'image',
+    quizSequence:[], currentQuizMode:'pinyin',
     bgmInitialized:false, isReviewMode:false, hasCurrentQuestionMistake:false,
 
     init(){
