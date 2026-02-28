@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <!-- 
+      ======================================================
+      版本：V1.5 (最新完整版)
+      更新内容：
+      1. 新增：自动邮件报告。学习或测验完成后，调用 Resend API 自动向家长邮箱发送学习成绩单。
+      2. 新增：分阶段闯关模式。将大纲所有生字按 15 个字一组切分，提供下拉框选择，防止孩子疲劳。
+      3. 修复：彻底去除了按钮在移动端/触摸屏上点击后残留的颜色边框 (加入了 focus:outline-none)。
+      4. 优化：字图严格映射。扩充了精准的 Emoji 字典，测验时自动过滤掉没有对应图片的抽象字，绝不乱配图。
+      5. 优化：Web Audio 纯代码合成轻音乐。完美绕过浏览器对 mp3 外部链接的拦截和跨域限制。
+      ======================================================
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>识字小达人 - 一年级语文学习</title>
@@ -90,7 +101,7 @@
         <!-- 视图 1：主页/输入页 -->
         <div id="view-home" class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar bounce-in">
             <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
-                <!-- 新增：分阶段下拉选择器 -->
+                <!-- 分阶段下拉选择器 -->
                 <div>
                     <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
                     <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-lg bg-white shadow-sm text-gray-700 font-bold" onchange="app.changeLesson()">
@@ -98,7 +109,7 @@
                     </select>
                 </div>
                 
-                <!-- 修改：缩小了输入框，提示文本更友好 -->
+                <!-- 缩小了输入框，提示文本更友好 -->
                 <div>
                     <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可手动修改）：</label>
                     <textarea id="input-chars" class="w-full p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-xl tracking-widest leading-relaxed resize-none" rows="3"></textarea>
@@ -353,7 +364,7 @@
                 }
             },
 
-            // --- 新增：分阶段分组逻辑 ---
+            // --- 分阶段分组逻辑 ---
             initLessons() {
                 // 1. 去掉重复的字，确保每个字只学一次
                 const uniqueChars = [...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
@@ -455,7 +466,7 @@
             updateLearnImage(char) {
                 let images = charDictionary[char];
                 if (!images) {
-                    // 彻底移除随机图标兜底。如果字典里没有，显示通用的“文字”图标，避免产生错误的图片映射
+                    // 如果字典里没有，显示通用的“文字”图标，避免产生错误的图片映射
                     images = ['📝', '📖', '🔤'];
                 }
                 
@@ -530,7 +541,7 @@
             startQuiz(type) {
                 if (!this.parseInput()) return;
                 
-                // 【核心修复1】如果选择“看字找图”，严格过滤出字典里有明确图片的字，避免用抽象符号去出题
+                // 如果选择“看字找图”，严格过滤出字典里有明确图片的字，避免用抽象符号去出题
                 let availableChars = [...this.chars];
                 if (type === 'image') {
                     availableChars = availableChars.filter(c => charDictionary[c]);
@@ -562,7 +573,7 @@
 
             renderQuizQuestion() {
                 if (this.currentIndex >= this.quizSequence.length) {
-                    // 【核心修复2】修复了“做了15道题说做了150道题”的文案逻辑错误
+                    // 修复了文案逻辑错误
                     this.showSuccess(`太棒了！共完成 ${this.quizSequence.length} 道题，获得 ${this.score} 分！`);
                     return;
                 }
@@ -601,7 +612,7 @@
                     
                     // 根据测验类型显示不同内容
                     if (this.quizType === 'image') {
-                        // 【严格映射】只从字典取真实含义图片，不再使用随机兜底图标
+                        // 只从字典取真实含义图片
                         let imgs = charDictionary[optChar] || ['📝'];
                         btn.innerText = imgs[Math.floor(Math.random() * imgs.length)]; // 随机取该字的一张图
                     } else {
@@ -695,7 +706,7 @@
                 }());
             },
 
-            // --- 新增：发送邮件报告功能 (调用 Resend API) ---
+            // --- 发送邮件报告功能 (调用 Resend API) ---
             sendEmailReport() {
                 const apiKey = "re_NiABrfbz_2E83piwyBWopQnzP4TvVpk7K";
                 let subject = "【识字小达人】学习报告";
