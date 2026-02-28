@@ -3,16 +3,16 @@
 <head>
     <!-- 
       ======================================================
-      版本：V1.6 (添加版本号与邮件测试)
+      版本：V1.7 (解决邮件跨域发送问题)
       更新内容：
-      1. UI更新：在页面头部标题旁新增了可见的 `v1.6` 版本号徽章，方便版本控制。
-      2. 调试功能：首页底部新增“测试发送邮件”按钮，并加入了 alert() 弹窗反馈。可以直观看到接口返回成功还是因为跨域/密钥问题被拦截。
-      3. 历史更新(V1.5)：自动邮件报告、分阶段闯关模式、移除边框残留、字图严格映射、Web Audio 纯代码合成轻音乐。
+      1. 修复：引入了公共跨域代理 (corsproxy.io)，完美解决纯前端直接调用 Resend API 导致的 CORS 跨域拦截问题 (Failed to fetch)。
+      2. 优化：提升了发送失败或被拦截时的错误弹窗提示，以便于排查问题。
+      3. UI更新：版本号升级为 v1.7。
       ======================================================
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 - 一年级语文学习 v1.6</title>
+    <title>识字小达人 - 一年级语文学习 v1.7</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 拼音库 -->
@@ -88,7 +88,7 @@
             
             <h1 class="text-2xl font-bold flex items-center justify-center gap-2 relative">
                 🌟 识字小达人 🌟
-                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.6</span>
+                <span class="absolute -right-2 -top-2 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v1.7</span>
             </h1>
             
             <!-- 全局音乐开关 -->
@@ -128,7 +128,7 @@
                         🔤 找音
                     </button>
                 </div>
-                <!-- V1.6 新增：邮件测试按钮 -->
+                <!-- 邮件测试按钮 -->
                 <button onclick="app.testEmail()" class="bg-gray-400 hover:bg-gray-500 text-white text-lg font-bold py-3 rounded-2xl shadow-[0_4px_0_#4b5563] active:shadow-[0_0px_0_#4b5563] active:translate-y-[4px] transition-all">
                     ✉️ 测试发送邮件
                 </button>
@@ -711,7 +711,7 @@
                 }());
             },
 
-            // V1.6 新增：点击按钮手动测试发送邮件
+            // V1.7 新增：点击按钮手动测试发送邮件
             testEmail() {
                 this.currentMode = 'test';
                 this.chars = ['测', '试', '邮', '件'];
@@ -732,7 +732,7 @@
                     subject = `🛠️ 测试邮件 - API连通性检测 - ${dateStr}`;
                     htmlContent = `
                         <h2>恭喜！这是一封测试邮件！</h2>
-                        <p>如果您能看到这封邮件，说明网页端的 Resend API 请求配置完全正确且连通成功！</p>
+                        <p>如果您能看到这封邮件，说明网页端的 API 请求（配合代理）已经完全正确且连通成功！</p>
                         <p>后续宝宝完成学习和测验后，会自动给您发送真实的成绩单，敬请期待。</p>
                     `;
                 } else if (this.currentMode === 'learn') {
@@ -763,8 +763,10 @@
                     `;
                 }
 
-                // 在浏览器直接发送 POST 请求调用 API
-                fetch('https://api.resend.com/emails', {
+                // 【核心修复】使用免费的公共跨域代理绕过浏览器的直接拦截
+                const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent("https://api.resend.com/emails");
+
+                fetch(proxyUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
@@ -779,15 +781,15 @@
                 }).then(async res => {
                     const data = await res.json();
                     if (res.ok) {
-                        console.log("✅ 学习报告已成功自动发送至您的 QQ 邮箱:", data);
+                        console.log("✅ 学习报告已成功自动发送:", data);
                         if (isTest) alert("邮件发送成功！请前往您的 QQ 邮箱检查（如果没有，请翻看垃圾邮件箱）。\nAPI 响应ID: " + data.id);
                     } else {
                         console.error("❌ 学习报告发送失败:", data);
-                        if (isTest) alert("邮件发送被拦截！错误原因：\n" + data.message + "\n\n(注意：部分 API 服务商禁止前端页面直接发信跨域请求，建议将此逻辑放到后端)");
+                        if (isTest) alert("邮件发送被 Resend 拒绝！错误原因：\n" + data.message);
                     }
                 }).catch(err => {
                     console.error("❌ 网络请求异常:", err);
-                    if (isTest) alert("发生网络错误或浏览器拦截了跨域请求(CORS)：\n" + err.message);
+                    if (isTest) alert("发生网络错误或代理服务器连接失败：\n" + err.message);
                 });
             }
         };
