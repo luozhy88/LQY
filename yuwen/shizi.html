@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 v5.1 (词语成语版)</title>
+    <title>识字小达人 v5.5 (高阶防混淆版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -31,7 +31,7 @@
         <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
         <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
             🌟 识字小达人 🌟
-            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v5.0</span>
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v5.5</span>
         </h1>
         <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
         <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
@@ -42,10 +42,25 @@
         <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
             <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm">
                 <label class="text-base font-bold text-yellow-800">⚙️ 每关字/词数：</label>
-                <div class="flex items-center gap-2">
-                    <input type="number" id="chars-per-level" value="5" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none" onchange="app.initLessons()">
-                    <span class="text-sm text-gray-500">个</span>
-                </div>
+                <select id="chars-per-level" class="w-24 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none bg-white" onchange="app.initLessons()">
+                    <option value="all">全部</option>
+                    <option value="5" selected>5个</option>
+                    <option value="6">6个</option>
+                    <option value="7">7个</option>
+                    <option value="8">8个</option>
+                    <option value="9">9个</option>
+                    <option value="10">10个</option>
+                    <option value="11">11个</option>
+                    <option value="12">12个</option>
+                    <option value="13">13个</option>
+                    <option value="14">14个</option>
+                    <option value="15">15个</option>
+                    <option value="16">16个</option>
+                    <option value="17">17个</option>
+                    <option value="18">18个</option>
+                    <option value="19">19个</option>
+                    <option value="20">20个</option>
+                </select>
             </div>
             <div>
                 <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
@@ -148,6 +163,73 @@ const sound = {
 };
 
 const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
+
+// 【核心优化】新增：高频形近字与近音字混淆字典
+const CONFUSIONS = {
+    '清':['晴','请','情','睛','青','精'],
+    '晴':['清','请','情','睛','青','阴'],
+    '情':['清','晴','请','睛','青'],
+    '请':['清','晴','情','睛','青'],
+    '睛':['清','晴','情','请','青','眼'],
+    '青':['清','晴','情','请','睛'],
+    '明':['朋','名','阴'],
+    '名':['明','各','字'],
+    '雨':['语','雪','两'],
+    '语':['雨','言','话'],
+    '天':['大','夫','无','关'],
+    '大':['天','太','犬','木'],
+    '白':['百','自','日'],
+    '自':['白','目','百'],
+    '言':['音','信'],
+    '双':['对','欢','单'],
+    '过':['这','还','进'],
+    '水':['冰','木','小'],
+    '木':['水','本','禾','大'],
+    '土':['士','干','工'],
+    '士':['土','干','十'],
+    '干':['千','土','十'],
+    '千':['干','十','于'],
+    '十':['千','土','干'],
+    '己':['已','巳','巴'],
+    '已':['己','巳','巴'],
+    '喝':['渴','唱'],
+    '渴':['喝','歇'],
+    '处':['外','休'],
+    '外':['处','休'],
+    '入':['人','八'],
+    '人':['入','八','大'],
+    '八':['入','人'],
+    '日':['目','白','曰'],
+    '目':['日','白','自'],
+    '右':['石','左'],
+    '石':['右','百'],
+    '左':['在','右'],
+    '在':['左','存'],
+    '鸟':['乌','马'],
+    '乌':['鸟','马'],
+    '早':['草','旱'],
+    '草':['早','苹'],
+    '学':['字','觉','生'],
+    '生':['升','声','牛'],
+    '花':['草','化'],
+    '牛':['午','生'],
+    '午':['牛','干'],
+    '毛':['手','无'],
+    '手':['毛','乎'],
+    '今':['令','金'],
+    '令':['今','冷'],
+    '很':['得','行'],
+    '得':['很','行'],
+    '地':['他','池'],
+    '他':['地','池'],
+    '池':['地','他'],
+    '玩':['完','远'],
+    '完':['玩','元'],
+    '中':['种','钟','忠'],
+    '种':['中','钟'],
+    '相':['香','乡','想'],
+    '香':['相','乡']
+};
 
 const D = {
     // 常用单字配图保留
@@ -265,22 +347,30 @@ const app={
 
     initLessons(){
         const unique=[...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
-        let gs=parseInt(document.getElementById('chars-per-level').value)||5;
-        if(gs < 5) gs = 5;
+        const val = document.getElementById('chars-per-level').value;
+        let gs = val === 'all' ? unique.length : (parseInt(val) || 5);
+        if(gs < 5 && val !== 'all') gs = 5;
+        
         const sel=document.getElementById('lesson-select'); sel.innerHTML='';
         
-        // 核心优化 1：合并为单个自定义挑战项
         let optC=document.createElement('option');
         optC.value="清明 学生 花生 请安 多么 双人 古老 名言 一清二白 雨过天晴 自言自语";
         optC.innerText="🌟 自定义词汇与成语挑战";
         sel.appendChild(optC);
 
         // 原生单字生成（中间加空格以便兼容拆词逻辑）
-        for(let i=0;i<unique.length;i+=gs){
-            const chars=unique.slice(i,i+gs).join(' '); // 加空格支持分词
+        if (val === 'all') {
+            const chars=unique.join(' ');
             const opt=document.createElement('option');
-            opt.value=chars; opt.innerText=`基础字第${Math.floor(i/gs)+1}关（第${i+1}~${Math.min(i+gs,unique.length)}字）`;
+            opt.value=chars; opt.innerText=`基础字全部（共${unique.length}字）`;
             sel.appendChild(opt);
+        } else {
+            for(let i=0;i<unique.length;i+=gs){
+                const chars=unique.slice(i,i+gs).join(' '); // 加空格支持分词
+                const opt=document.createElement('option');
+                opt.value=chars; opt.innerText=`基础字第${Math.floor(i/gs)+1}关（第${i+1}~${Math.min(i+gs,unique.length)}字）`;
+                sel.appendChild(opt);
+            }
         }
         this.changeLesson();
     },
@@ -319,7 +409,6 @@ const app={
         this.sessionMistakes.clear();
         this.currentQuizMode=document.getElementById('quiz-mode-select').value;
         
-        // 核心优化 2：如果是拼音测验模式，直接跳过学习，进入考试环节
         if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
             this.charsToLearn = [...this.allCharsInSession];
             this.startQuizPhase();
@@ -423,81 +512,97 @@ const app={
         if(this.currentIndex>=this.quizSequence.length){ this.checkQuizResult(); return; }
         this.hasCurrentQuestionMistake=false;
         
-        const target=this.quizSequence[this.currentIndex];
+        const target=this.quizSequence[this.currentIndex]; // 当前考核的字/词 (例如: "清水"或"清明")
         const quizCharEl = document.getElementById('quiz-char');
         document.getElementById('quiz-score').innerText=this.score;
         document.getElementById('quiz-progress-text').innerText=`${this.currentIndex+1}/${this.quizSequence.length}`;
 
-        let rawTargetAnswer;
+        // ================= 1. 设置题目展示框的内容 =================
+        let promptText = target;
+        let promptSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
         
-        if(this.currentQuizMode === 'pinyin') { 
-            quizCharEl.innerText = target;
-            quizCharEl.style.fontSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
-            rawTargetAnswer = target; 
-        } else if (this.currentQuizMode === 'pinyin2word') {
-            const py = getSafePinyin(target);
-            quizCharEl.innerText = py;
-            quizCharEl.style.fontSize = py.length > 15 ? 'clamp(1rem,3vh,1.5rem)' : (py.length > 8 ? 'clamp(1.5rem,4vh,2rem)' : 'clamp(2rem,6vh,3rem)');
-            rawTargetAnswer = target;
-        } else { 
-            quizCharEl.innerText = target;
-            quizCharEl.style.fontSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
-            const tc=getContentForChar(target); 
-            rawTargetAnswer=tc[Math.floor(Math.random()*tc.length)]; 
+        if (this.currentQuizMode === 'pinyin2word') {
+            promptText = getSafePinyin(target);
+            promptSize = promptText.length > 15 ? 'clamp(1rem,3vh,1.5rem)' : (promptText.length > 8 ? 'clamp(1.5rem,4vh,2rem)' : 'clamp(2rem,6vh,3rem)');
+        }
+        
+        quizCharEl.innerText = promptText;
+        quizCharEl.style.fontSize = promptSize;
+
+        // ================= 2. 确定正确的答案展示项 =================
+        let targetDisplay;
+        if (this.currentQuizMode === 'pinyin') {
+            targetDisplay = getSafePinyin(target);
+        } else if (this.currentQuizMode === 'image') {
+            const tc = getContentForChar(target);
+            targetDisplay = tc[Math.floor(Math.random() * tc.length)];
+        } else {
+            targetDisplay = target;
         }
 
-        let targetDisplay = isPureEmoji(rawTargetAnswer) ? rawTargetAnswer : 
-                           (this.currentQuizMode === 'pinyin' ? getSafePinyin(rawTargetAnswer) || rawTargetAnswer : rawTargetAnswer);
+        let opts = [{ display: targetDisplay, originalText: target, isTarget: true }];
+        let usedTexts = new Set([targetDisplay]);
 
-        let used=new Set([targetDisplay]);
-        let opts=[{ display: targetDisplay, originalText: rawTargetAnswer, isTarget: true }];
-
-        const getDistinct=(char)=>{
-            if(this.currentQuizMode === 'pinyin'){
-                const py=getSafePinyin(char) || char; 
-                if(!used.has(py)) return { display: py, originalText: char };
-            } else if (this.currentQuizMode === 'pinyin2word') {
-                if(!used.has(char)) return { display: char, originalText: char };
-            } else {
-                const cs=getContentForChar(char);
-                for(const item of [...cs].sort(()=>Math.random()-0.5)) {
-                    const disp = isPureEmoji(item) ? item : (getSafePinyin(item) || item);
-                    if(!used.has(disp)) return { display: disp, originalText: item };
-                }
+        // ================= 3. 【核心算法】生成高强度混淆干扰词 =================
+        let confusableWords = new Set();
+        const chars = target.split('');
+        
+        // 策略 A: 基于字典的形近字/近音字替换 (比如: 清明 -> 晴明/请明)
+        // 这种替换在转换成拼音模式时，会自动生成调号错误或前后鼻音错误的拼音选项！
+        for (let i = 0; i < chars.length; i++) {
+            const c = chars[i];
+            if (CONFUSIONS[c]) {
+                CONFUSIONS[c].forEach(alt => {
+                    let newWord = [...chars];
+                    newWord[i] = alt;
+                    confusableWords.add(newWord.join(''));
+                });
             }
-            return null;
-        };
+        }
+        
+        // 策略 B: 同等长度的结构替换 (如果字典里没有足够的混淆字，用基础字库组装等长词)
+        let attempts = 0;
+        while (confusableWords.size < 15 && attempts < 50) {
+            let newWord = [...chars];
+            let replaceIdx = Math.floor(Math.random() * chars.length);
+            let randomChar = allCharsStr[Math.floor(Math.random() * allCharsStr.length)];
+            newWord[replaceIdx] = randomChar;
+            confusableWords.add(newWord.join(''));
+            attempts++;
+        }
 
-        // 核心优化 3：确保干扰项的长度与答案一致（增强混淆性）
-        const targetLen = target.length;
+        // 获取学习池和全量字典中本身就等长的词语
         let basePool = [...new Set([...this.allCharsInSession, ...Object.keys(D)])].filter(c => c !== target);
+        let sameLenPool = basePool.filter(c => c.length === target.length);
         
-        // 动态生成同等长度的随机词汇作为强混淆候补项（以防基础词库不够）
-        let extraPool = [];
-        for (let i = 0; i < 30; i++) {
-            let w = '';
-            for (let j = 0; j < targetLen; j++) {
-                w += allCharsStr[Math.floor(Math.random() * allCharsStr.length)];
+        // 组合混淆词库优先级：强混淆替换词 -> 本地同长度词 -> 其他长度备胎词
+        let combinedWordPool = [...confusableWords, ...sameLenPool, ...basePool];
+        
+        // ================= 4. 将混淆词转化为界面的ABCD选项 =================
+        for (const word of combinedWordPool) {
+            if (opts.length >= 4) break;
+            
+            let distDisplay;
+            if (this.currentQuizMode === 'pinyin') {
+                distDisplay = getSafePinyin(word); 
+                // 防止形近字发音一样导致出现了两个完全一样的正确拼音选项
+                if(distDisplay === getSafePinyin(target)) continue; 
+            } else if (this.currentQuizMode === 'image') {
+                const cs = getContentForChar(word);
+                distDisplay = isPureEmoji(cs[0]) ? cs[0] : word;
+            } else {
+                distDisplay = word;
             }
-            if (w !== target) extraPool.push(w);
-        }
-        
-        let combinedPool = [...basePool, ...extraPool];
-        
-        // 分别筛选出：长度相同的项、长度不同的项
-        let sameLenPool = combinedPool.filter(c => c.length === targetLen).sort(() => Math.random() - 0.5);
-        let diffLenPool = combinedPool.filter(c => c.length !== targetLen).sort(() => Math.random() - 0.5);
-        
-        // 优先使用相同长度的混淆项进行出题
-        let avail = [...sameLenPool, ...diffLenPool];
 
-        for(const char of avail){ 
-            if(opts.length>=4) break; 
-            const item=getDistinct(char); 
-            if(item){ used.add(item.display); opts.push(item); } 
+            if (distDisplay && !usedTexts.has(distDisplay)) {
+                usedTexts.add(distDisplay);
+                opts.push({ display: distDisplay, originalText: word });
+            }
         }
-        opts=opts.sort(()=>Math.random()-0.5);
 
+        opts = opts.sort(() => Math.random() - 0.5);
+
+        // ================= 5. 渲染选项到界面 =================
         const container=document.getElementById('quiz-options'); container.innerHTML='';
         opts.forEach(opt=>{
             const btn=document.createElement('button');
