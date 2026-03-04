@@ -54,9 +54,9 @@
             <div>
                 <label class="block text-lg font-bold text-yellow-800 mb-1">🎮 测验模式：</label>
                 <select id="quiz-mode-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none">
-                    <option value="pinyin2word" selected>看拼音找字/词（最强巩固）</option>
-                    <option value="pinyin">看字找拼音（拼音检验）</option>
-                    <option value="image">看字找图/词（拓展认知）</option>
+                    <option value="pinyin2word" selected>看拼音找字/词（纯测验模式）</option>
+                    <option value="pinyin">看字找拼音（纯测验模式）</option>
+                    <option value="image">看字找图/词（带学习模式）</option>
                 </select>
             </div>
             <div>
@@ -219,7 +219,7 @@ function renderDisplayItem(str, el, isLarge=true){
 }
 
 const app={
-    allCharsInSession:[], charsToLearn:[], failedChars:[],
+    allCharsInSession:[], charsToLearn:[], failedChars:[], sessionMistakes:new Set(),
     currentIndex:0, currentStep:0, score:0,
     quizSequence:[], currentQuizMode:'pinyin2word',
     bgmInitialized:false, isReviewMode:false, hasCurrentQuestionMistake:false,
@@ -269,16 +269,11 @@ const app={
         if(gs < 5) gs = 5;
         const sel=document.getElementById('lesson-select'); sel.innerHTML='';
         
-        // 插入用户自定义的专属挑战
-        let optC1=document.createElement('option');
-        optC1.value="清明 学生 花生 请安 多么 双人 古老 名言";
-        optC1.innerText="🌟 自定义词语挑战1";
-        sel.appendChild(optC1);
-
-        let optC2=document.createElement('option');
-        optC2.value="一清二白 雨过天晴 自言自语";
-        optC2.innerText="🔥 进阶成语挑战2";
-        sel.appendChild(optC2);
+        // 核心优化 1：合并为单个自定义挑战项
+        let optC=document.createElement('option');
+        optC.value="清明 学生 花生 请安 多么 双人 古老 名言 一清二白 雨过天晴 自言自语";
+        optC.innerText="🌟 自定义词汇与成语挑战";
+        sel.appendChild(optC);
 
         // 原生单字生成（中间加空格以便兼容拆词逻辑）
         for(let i=0;i<unique.length;i+=gs){
@@ -321,7 +316,16 @@ const app={
     startFlow(){ 
         if(!this.parseInput()) return; 
         this.score=0; this.isReviewMode=false; 
-        this.startLearningPhase(this.allCharsInSession); 
+        this.sessionMistakes.clear();
+        this.currentQuizMode=document.getElementById('quiz-mode-select').value;
+        
+        // 核心优化 2：如果是拼音测验模式，直接跳过学习，进入考试环节
+        if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
+            this.charsToLearn = [...this.allCharsInSession];
+            this.startQuizPhase();
+        } else {
+            this.startLearningPhase(this.allCharsInSession); 
+        }
     },
 
     startLearningPhase(arr){
@@ -426,28 +430,22 @@ const app={
 
         let rawTargetAnswer;
         
-        // 核心：处理新题型和自适应
         if(this.currentQuizMode === 'pinyin') { 
-            // 看字找拼音
             quizCharEl.innerText = target;
             quizCharEl.style.fontSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
             rawTargetAnswer = target; 
         } else if (this.currentQuizMode === 'pinyin2word') {
-            // 看拼音找字/词 (大框显示拼音)
             const py = getSafePinyin(target);
             quizCharEl.innerText = py;
-            // 拼音可能会很长
             quizCharEl.style.fontSize = py.length > 15 ? 'clamp(1rem,3vh,1.5rem)' : (py.length > 8 ? 'clamp(1.5rem,4vh,2rem)' : 'clamp(2rem,6vh,3rem)');
             rawTargetAnswer = target;
         } else { 
-            // 看字找图
             quizCharEl.innerText = target;
             quizCharEl.style.fontSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
             const tc=getContentForChar(target); 
             rawTargetAnswer=tc[Math.floor(Math.random()*tc.length)]; 
         }
 
-        // 确定展示文案
         let targetDisplay = isPureEmoji(rawTargetAnswer) ? rawTargetAnswer : 
                            (this.currentQuizMode === 'pinyin' ? getSafePinyin(rawTargetAnswer) || rawTargetAnswer : rawTargetAnswer);
 
@@ -470,9 +468,29 @@ const app={
             return null;
         };
 
-        const avail=[...new Set([...this.allCharsInSession,...Object.keys(D)])]
-            .filter(c=>c!==target).sort(()=>Math.random()-0.5);
+        // 核心优化 3：确保干扰项的长度与答案一致（增强混淆性）
+        const targetLen = target.length;
+        let basePool = [...new Set([...this.allCharsInSession, ...Object.keys(D)])].filter(c => c !== target);
         
+        // 动态生成同等长度的随机词汇作为强混淆候补项（以防基础词库不够）
+        let extraPool = [];
+        for (let i = 0; i < 30; i++) {
+            let w = '';
+            for (let j = 0; j < targetLen; j++) {
+                w += allCharsStr[Math.floor(Math.random() * allCharsStr.length)];
+            }
+            if (w !== target) extraPool.push(w);
+        }
+        
+        let combinedPool = [...basePool, ...extraPool];
+        
+        // 分别筛选出：长度相同的项、长度不同的项
+        let sameLenPool = combinedPool.filter(c => c.length === targetLen).sort(() => Math.random() - 0.5);
+        let diffLenPool = combinedPool.filter(c => c.length !== targetLen).sort(() => Math.random() - 0.5);
+        
+        // 优先使用相同长度的混淆项进行出题
+        let avail = [...sameLenPool, ...diffLenPool];
+
         for(const char of avail){ 
             if(opts.length>=4) break; 
             const item=getDistinct(char); 
@@ -489,7 +507,6 @@ const app={
                 btn.innerText=opt.display; 
                 if(this.currentQuizMode === 'pinyin') btn.classList.add('font-sans','tracking-wider');
                 
-                // 根据选项字符长度动态缩放字体
                 let len = opt.display.length;
                 if(len > 15) btn.style.fontSize = 'clamp(0.8rem, 2.5vh, 1.2rem)';
                 else if(len > 8) btn.style.fontSize = 'clamp(1rem, 3vh, 1.5rem)';
@@ -534,7 +551,11 @@ const app={
             setTimeout(()=>{ this.currentIndex++; this.renderQuizQuestion(); },900);
         } else {
             btn.classList.add('shake','bg-red-50','border-red-400');
-            if(!this.hasCurrentQuestionMistake){ this.hasCurrentQuestionMistake=true; if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); }
+            if(!this.hasCurrentQuestionMistake){ 
+                this.hasCurrentQuestionMistake=true; 
+                if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); 
+                this.sessionMistakes.add(targetChar);
+            }
             setTimeout(()=>btn.classList.remove('shake','bg-red-50','border-red-400'),400);
             
             if(!isSpoken && 'speechSynthesis' in window){ 
@@ -547,12 +568,49 @@ const app={
 
     checkQuizResult(){
         if(this.failedChars.length>0){
-            this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！`,'⚠️','好的，去复习',()=>{ this.isReviewMode=true; this.startLearningPhase([...this.failedChars]); });
+            this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！`,'⚠️','好的，去复习',()=>{ 
+                this.isReviewMode=true; 
+                // 如果是拼音测验模式复习时，也跳过学习阶段直接测验
+                if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
+                    this.charsToLearn = [...this.failedChars];
+                    this.startQuizPhase();
+                } else {
+                    this.startLearningPhase([...this.failedChars]); 
+                }
+            });
         } else {
-            this.showModal('太棒了！',`所有的内容都掌握啦！<br>本次总分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！`,'🎉','返回首页',()=>this.goHome());
+            this.sendReport();
+            this.showModal('太棒了！',`所有的内容都掌握啦！<br>本次总分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！<br><span class="text-sm text-gray-400 mt-2 block">📧 学习报告已发送至家长邮箱</span>`,'🎉','返回首页',()=>this.goHome());
             const end=Date.now()+3000;
             (function f(){ confetti({particleCount:5,angle:60,spread:55,origin:{x:0}}); confetti({particleCount:5,angle:120,spread:55,origin:{x:1}}); if(Date.now()<end) requestAnimationFrame(f); })();
         }
+    },
+
+    sendReport(){
+        const email = "479321347@qq.com";
+        const modeNames = { 'pinyin2word': '看拼音找字/词', 'pinyin': '看字找拼音', 'image': '看字找图/词' };
+        const modeText = modeNames[this.currentQuizMode] || this.currentQuizMode;
+        const wordsLearned = this.allCharsInSession.join(', ');
+        const mistakes = Array.from(this.sessionMistakes).join(', ') || '无（全对，太棒了！）';
+        
+        const data = {
+            _subject: `📝 识字小达人 学习报告 - ${new Date().toLocaleDateString()}`,
+            "测试模式": modeText,
+            "本次学习内容": wordsLearned,
+            "遇到困难的字词": mistakes,
+            "最终得分": this.score,
+            "完成时间": new Date().toLocaleString(),
+            _template: "table"
+        };
+
+        fetch(`https://formsubmit.co/ajax/${email}`, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => console.log("学习报告已发送:", data))
+        .catch(err => console.error("发送报告失败:", err));
     },
 
     playAudio(){
@@ -560,7 +618,6 @@ const app={
         if(!document.getElementById('view-learn').classList.contains('hidden')){
             c=this.charsToLearn[this.currentIndex];
         } else if(!document.getElementById('view-quiz').classList.contains('hidden')){
-            // 对于测验模式，不管是看字还是看拼音，题目发音都应该读原本的汉字
             c=this.quizSequence[this.currentIndex]; 
         }
         
