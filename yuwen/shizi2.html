@@ -1,0 +1,618 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>识字小达人 v4.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family:"Comic Sans MS","Chalkboard SE","楷体","KaiTi",sans-serif; background-color:#f0fdf4; background-image:radial-gradient(#bbf7d0 2px,transparent 2px); background-size:30px 30px; touch-action:manipulation; }
+        ruby { ruby-align:center; }
+        rt { font-family:Arial,sans-serif; color:#ef4444; margin-bottom:2px; }
+        .bounce-in { animation:bounceIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+        @keyframes bounceIn { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+        .shake { animation:shake 0.4s ease-in-out; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 50%{transform:translateX(10px)} 75%{transform:translateX(-10px)} }
+        .slide-in-right { animation:slideInRight 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+        @keyframes slideInRight { 0%{transform:translateX(80px) scale(0.8);opacity:0} 100%{transform:translateX(0) scale(1);opacity:1} }
+        .card-shadow { box-shadow:0 10px 25px -5px rgba(0,0,0,0.1),0 8px 10px -6px rgba(0,0,0,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        /* 大字展示区专用样式 */
+        .display-cell { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:100%; height:100%; }
+        .display-emoji { line-height:1; }
+        .display-label { font-size:clamp(1.1rem,3.5vh,1.8rem); color:#374151; font-weight:bold; }
+    </style>
+</head>
+<body id="app-body" class="h-[100dvh] w-full flex flex-col items-center justify-center sm:p-4 text-gray-800 overflow-hidden">
+<div id="app-container" class="w-full h-full max-w-4xl bg-white sm:rounded-3xl card-shadow overflow-hidden relative flex flex-col">
+    <header class="bg-green-400 text-white p-2 sm:p-4 text-center relative z-10 shadow-md shrink-0">
+        <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
+        <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
+            🌟 识字小达人 🌟
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v4.0</span>
+        </h1>
+        <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
+        <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
+    </header>
+
+    <!-- 主页 -->
+    <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
+        <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
+            <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm">
+                <label class="text-base font-bold text-yellow-800">⚙️ 每关字数：</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="chars-per-level" value="5" min="5" max="50" class="w-16 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none" onchange="app.updateGroupSize()">
+                    <span class="text-sm text-gray-500">字</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
+                <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none" onchange="app.changeLesson()"></select>
+            </div>
+            <div>
+                <label class="block text-lg font-bold text-yellow-800 mb-1">🎮 测验模式：</label>
+                <select id="quiz-mode-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none">
+                    <option value="pinyin" selected>看字找拼音（默认）</option>
+                    <option value="image">看字找图/词</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的字（可修改）：</label>
+                <textarea id="input-chars" class="w-full min-h-[80px] p-3 rounded-xl border-2 border-yellow-200 text-xl tracking-widest leading-relaxed resize-none focus:outline-none" rows="2"></textarea>
+            </div>
+        </div>
+        <button onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl sm:text-2xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-none active:translate-y-[6px] transition-all">🚀 开始闯关</button>
+    </div>
+
+    <!-- 学习模式 -->
+    <div id="view-learn" class="hidden flex-1 p-3 sm:p-6 flex flex-col items-center justify-center gap-2 sm:gap-4 bounce-in relative min-h-0">
+        <div class="w-full bg-gray-200 rounded-full h-2 relative shrink-0 mt-3 sm:mt-0">
+            <div id="learn-progress" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+            <div id="learn-title" class="absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600">正在学习新字</div>
+        </div>
+        <div class="bg-white border-4 border-blue-200 rounded-2xl sm:rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 min-h-0">
+            <!-- 左：汉字+拼音 -->
+            <div class="w-[42%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-2 sm:p-4 bg-blue-50/40 cursor-pointer group relative" onclick="app.playAudio()">
+                <ruby class="font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors" style="font-size:clamp(3rem,12vh,5.5rem);">
+                    <span id="learn-char">水</span>
+                    <rt id="learn-pinyin" class="tracking-widest font-sans" style="font-size:clamp(1.1rem,3.5vh,2.2rem);"></rt>
+                </ruby>
+                <div class="absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white px-2 py-0.5 rounded-full shadow-sm border border-blue-100">🔊 点击发音</div>
+            </div>
+            <!-- 右：图示区 -->
+            <div class="w-[58%] flex flex-col p-2 sm:p-4 bg-white min-h-0 relative">
+                <div class="flex-1 flex items-center justify-center overflow-hidden min-h-0 w-full relative">
+                    <div id="learn-image"></div>
+                    <!-- 动态提示：当展示的是文字时显示 -->
+                    <div id="learn-image-hint" class="hidden absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white/90 px-2 py-0.5 rounded-full shadow-sm border border-blue-100 pointer-events-none transition-opacity">🔊 点击读词</div>
+                </div>
+                <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0">
+                    下一个演示 (1/3)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测验模式 -->
+    <div id="view-quiz" class="hidden flex-1 p-2 sm:p-6 flex flex-col items-center gap-2 sm:gap-4 bounce-in relative min-h-0">
+        <div class="w-full flex justify-between items-center text-sm sm:text-lg font-bold text-gray-600 shrink-0">
+            <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/5</span></div>
+            <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
+        </div>
+        <h2 id="quiz-prompt" class="text-base sm:text-2xl font-bold text-center text-gray-800 shrink-0">哪一个是它？</h2>
+        <div class="bg-white border-4 border-pink-200 rounded-xl sm:rounded-3xl w-16 h-16 sm:w-28 sm:h-28 flex items-center justify-center shadow-md shrink-0">
+            <span id="quiz-char" class="font-bold text-gray-800" style="font-size:clamp(2rem,6vh,4rem);">火</span>
+        </div>
+        <div id="quiz-options" class="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 w-full flex-1 min-h-0 pb-1"></div>
+    </div>
+</div>
+
+<!-- 弹窗 -->
+<div id="modal-msg-box" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center bounce-in shadow-2xl">
+        <div id="modal-icon" class="text-[60px] sm:text-[80px] mb-2">🎉</div>
+        <h2 id="modal-title" class="text-2xl sm:text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
+        <p id="modal-msg" class="text-base sm:text-lg text-gray-600 mb-4"></p>
+        <button id="modal-btn" class="w-full bg-green-500 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
+    </div>
+</div>
+
+<script>
+const sound = {
+    ctx:null, bgmInterval:null, isPlaying:false,
+    init(){ if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended') this.ctx.resume(); },
+    playBGM(){
+        if(!this.ctx) this.init(); this.stopBGM(); this.isPlaying=true;
+        const bd=0.5; let step=0;
+        const mel=[74,78,81,74,69,73,76,69,71,74,78,71,67,71,74,67];
+        this.bgmInterval=setInterval(()=>{
+            if(this.ctx.state!=='running') return;
+            const freq=440*Math.pow(2,(mel[step%mel.length]-69)/12);
+            this.playNote(freq,bd*0.5);
+            if(step%4===0) this.playNote(freq/4,1.0,0.04);
+            step++;
+        },bd*500);
+    },
+    playNote(freq,dur,vol=0.025){
+        const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+        o.type='sine'; o.frequency.value=freq;
+        g.gain.setValueAtTime(0,this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(vol,this.ctx.currentTime+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001,this.ctx.currentTime+dur+0.4);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(); o.stop(this.ctx.currentTime+dur+0.5);
+    },
+    stopBGM(){ this.isPlaying=false; if(this.bgmInterval) clearInterval(this.bgmInterval); }
+};
+
+const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
+
+const D = {
+    // 自然·天地
+    '日':['☀️','太阳','日光'],'月':['🌙','月亮','🌕'],'山':['⛰️','高山','山顶'],
+    '水':['💧','喝水','流水'],'火':['🔥','大火','火苗'],'土':['🪴','泥土','土地'],
+    '石':['🪨','石头','岩石'],'云':['☁️','白云','云朵'],'雨':['🌧️','下雨','雨水'],
+    '雪':['❄️','下雪','雪花'],'风':['🌬️','大风','风吹'],'雷':['⛈️','打雷','雷声'],
+    '电':['⚡','闪电','电光'],'冰':['🧊','冰块','冰凉'],'霜':['🌨️','冰霜','霜冻'],
+    '虹':['🌈','彩虹','彩虹桥'],'天':['🌤️','天空','晴天'],'星':['⭐','星星','星光'],
+    '光':['💡','阳光','发光'],'阳':['🌞','太阳','阳光'],'夕':['🌇','夕阳','夕阳红'],
+    '晨':['🌅','早晨','清晨'],'霞':['🌄','朝霞','彩霞'],'晴':['🌤️','晴天','晴朗'],
+    '阴':['🌥️','阴天','阴云'],'冻':['🧊','冰冻','冻住'],'暑':['🌡️','暑假','酷暑'],
+    '寒':['🥶','寒冷','严寒'],'露':['💦','露水','露珠'],
+
+    // 自然·水域
+    '河':['🌊','小河','河水'],'江':['🏞️','长江','江水'],'海':['🌊🏝️','大海','海水'],
+    '池':['🏊','水池','池塘'],'泉':['💦','泉水','泉眼'],
+
+    // 植物
+    '树':['🌳','大树','树木'],'花':['🌸','红花','花朵'],'草':['🌿','小草','草地'],
+    '叶':['🍃','树叶','叶子'],'瓜':['🍉','西瓜','瓜果'],'苹':['🍎','苹果','苹果树'],
+    '豆':['🫘','黄豆','豆子'],'米':['🍚','大米','米饭'],'萍':['🌿','浮萍','水萍'],
+    '荷':['🪷','荷花','荷叶'],'柳':['🌿','柳树','柳枝'],'杨':['🌲','杨树','杨叶'],
+    '果':['🍎','水果','果实'],'木':['🪵','木头','树木'],'竹':['🎋','竹子','竹叶'],
+    '松':['🌲','松树','松树'],
+
+    // 动物
+    '鱼':['🐟','金鱼','小鱼'],'鸟':['🐦','小鸟','鸟儿'],'牛':['🐄','水牛','牛奶'],
+    '羊':['🐑','绵羊','小羊'],'马':['🐎','骏马','小马'],'象':['🐘','大象','象鼻'],
+    '猫':['🐱','小猫','猫咪'],'狗':['🐶','小狗','狗狗'],'猪':['🐷','小猪','猪猪'],
+    '熊':['🐼','熊猫','大熊'],'虫':['🐛','虫子','小虫'],'蚂':['🐜','蚂蚁','小蚂蚁'],
+    '蚁':['🐜','白蚁','蚂蚁'],'蛙':['🐸','青蛙','小蛙'],'蛛':['🕷️','蜘蛛','蛛网'],
+    '蜻':['🦗','蜻蜓','蜻蜓飞'],'鸭':['🦆','鸭子','小鸭'],'鸡':['🐔','小鸡','公鸡'],
+    '兔':['🐰','兔子','小兔'],'蛇':['🐍','蛇','小蛇'],'龙':['🐉','龙','飞龙'],
+
+    // 人物与家庭
+    '人':['🧍','好人','人们'],'爸':['👨','爸爸','父亲'],'妈':['👩','妈妈','母亲'],
+    '哥':['👦','哥哥','大哥'],'姐':['👧','姐姐','大姐'],'弟':['👶','弟弟','小弟'],
+    '妹':['👧','妹妹','小妹'],'我':['🙋','我们','自己'],'你':['👉','你好','你们'],
+    '他':['🙎','他们','他的'],'她':['💁','她们','她的'],'您':['🫡','您好','您们'],
+
+    // 身体部位
+    '头':['👤','头发','头顶'],'眼':['👀','眼睛','眼珠'],'睛':['👁️','眼睛','眼珠'],
+    '耳':['👂','耳朵','耳听'],'口':['👄','嘴巴','开口'],'嘴':['👄','嘴巴','嘴唇'],
+    '鼻':['👃','鼻子','鼻孔'],'手':['🖐️','双手','手掌'],'脚':['🦶','脚丫','脚板'],
+    '腿':['🦵','大腿','腿脚'],'臂':['💪','手臂','臂膀'],'身':['🧍','身体','全身'],
+    '肚':['🫃','肚子','肚皮'],'体':['💪','身体','体育'],'眉':['🤨','眉毛','眉眼'],
+    '脖':['🙆','脖子','颈脖'],
+
+    // 四季
+    '春':['🌸','春天','春风'],'夏':['☀️🏊','夏天','夏日'],'秋':['🍁','秋天','秋风'],
+    '冬':['⛄','冬天','冬雪'],
+
+    // 食物
+    '肉':['🥩','吃肉','肉肉'],'饭':['🍚','吃饭','米饭'],'面':['🍜','面条','面食'],
+    '粽':['🍃🍚','粽子','粽叶'],'蛋':['🥚','鸡蛋','蛋蛋'],
+
+    // 颜色
+    '红':['🔴','红色','红花'],'黄':['🟡','黄色','黄叶'],'蓝':['🔵','蓝色','蓝天'],
+    '绿':['🟢','绿色','绿草'],'白':['⚪','白色','白云'],'黑':['⚫','黑色','黑夜'],
+
+    // 建筑与场所
+    '家':['🏠','回家','家里'],'房':['🏠','房子','房间'],'校':['🏫','学校','校园'],
+    '门':['🚪','开门','门口'],'窗':['🪟','窗户','窗口'],'楼':['🏢','大楼','楼上'],
+    '场':['🏟️','操场','广场'],'院':['🏡','院子','庭院'],
+
+    // 交通与物品
+    '车':['🚗','汽车','车子'],'船':['⛵','帆船','小船'],'飞':['✈️','飞机','飞翔'],
+    '书':['📚','看书','书本'],'笔':['✏️','铅笔','钢笔'],'包':['🎒','书包','袋子'],
+    '球':['⚽','足球','球球'],'床':['🛏️','起床','床铺'],'伞':['☔','雨伞','伞伞'],
+    '裙':['👗','裙子','花裙'],'镜':['🪞','镜子','照镜'],'网':['🕸️','蜘蛛网','网络'],
+    '绳':['🪢','跳绳','绳子'],'棋':['♟️','下棋','围棋'],'钟':['🕐','时钟','闹钟'],
+    '灯':['🪔','灯光','灯笼'],'桌':['🪑','桌子','课桌'],
+
+    // 动作
+    '跑':['🏃','跑步','奔跑'],'跳':['🤸','跳高','跳绳'],'游':['🏊','游泳','畅游'],
+    '走':['🚶','走路','行走'],'爬':['🧗','爬山','爬高'],'打':['🏓','打球','打拍'],
+    '拍':['👏','拍手','拍球'],'唱':['🎤','唱歌','歌唱'],'洗':['🚿','洗手','洗澡'],
+    '吹':['🎈','吹气球','风吹'],'吃':['🍔','吃饭','好吃'],'喝':['🥤','喝水','饮料'],
+    '看':['👀','看见','看书'],'听':['🎧','听见','听话'],'说':['💬','说话','说明'],
+    '讲':['🗣️','讲话','听讲'],'笑':['😄','大笑','微笑'],'哭':['😭','哭泣','大哭'],
+    '飘':['🍃','飘落','飘扬'],'落':['🍂','落叶','降落'],'浇':['🚿','浇水','浇花'],
+    '摇':['🌿','摇摆','摇头'],'躺':['🛏️','躺下','躺平'],
+
+    // 数字
+    '一':['1️⃣','第一','一个'],'二':['2️⃣','第二','两个'],'三':['3️⃣','第三','三个'],
+    '四':['4️⃣','第四','四个'],'五':['5️⃣','第五','五个'],'六':['6️⃣','第六','六个'],
+    '七':['7️⃣','第七','七个'],'八':['8️⃣','第八','八个'],'九':['9️⃣','第九','九个'],
+    '十':['🔟','十分','十个'],'百':['💯','一百','百分'],'千':['🔢','一千','千万'],
+    '万':['🔢','一万','万物'],
+
+    // 方位与形容
+    '上':['⬆️','上面','向上'],'下':['⬇️','下面','向下'],'左':['⬅️','左手','左边'],
+    '右':['➡️','右手','右边'],'前':['⏩','前面','向前'],'后':['⏪','后面','后方'],
+    '里':['📦','里面','内里'],'外':['🚪','外面','门外'],'中':['🎯','中间','中心'],
+    '大':['🐘','大小','放大'],'小':['🐭','小小','缩小'],'高':['🏔️','高山','升高'],
+    '低':['📉','高低','低下'],'长':['📏','很长','长度'],'短':['📐','短小','短暂'],
+    '圆':['⭕','圆形','圆圆'],'方':['🟦','方形','方向'],'尖':['🗡️','笔尖','尖尖'],
+    '宽':['↔️','宽大','宽广'],'远':['🌅','远方','遥远'],'近':['👋','靠近','近处'],
+    '快':['🚀','快速','快乐'],'慢':['🐢','缓慢','慢慢'],'多':['📦📦','很多','多少'],
+    '少':['🤏','少少','多少'],
+
+    // 情绪与感受
+    '乐':['😄','快乐','音乐'],'喜':['😊','喜欢','喜事'],'欢':['🎉','欢乐','喜欢'],
+    '爱':['❤️','爱好','可爱'],'怕':['😨','害怕','可怕'],'急':['😰','着急','急忙'],
+    '忘':['🤔','忘记','忘掉'],'迷':['🌀','迷路','入迷'],
+
+    // 常用虚字/副词与杂项
+    '很':['👍','很好','很多'],'也':['🔄','也是','也好'],'都':['✅','都是','大都'],
+    '不':['❌','不好','不行'],'好':['👍','好的','很好'],'有':['✅','有的','有了'],
+    '没':['❌','没有','没人'],'来':['👉','来了','过来'],'去':['👈','去了','离去'],
+    '到':['🎯','来到','迟到'],'在':['📍','在哪','存在'],'是':['✔️','是的','是否'],
+    '心':['❤️','小心','爱心'],'气':['🌬️','天气','生气'],'音':['🎵','声音','音乐'],
+    '声':['🔊','声音','大声'],'光':['💡','阳光','发光'],'色':['🎨','颜色','彩色'],
+    '字':['📝','写字','汉字'],'文':['📖','语文','课文'],'语':['💬','语言','语文'],
+    '学':['📚','学习','学校'],'习':['✍️','学习','练习'],'玩':['🎮','玩具','玩耍'],
+    '运':['🏃','运动','运气'],'动':['🏃','运动','动作'],'国':['🏳️','国家','中国'],
+    '王':['👑','大王','国王'],'家':['🏠','回家','大家'],'乡':['🌾','家乡','故乡'],
+    '生':['🌱','出生','学生'],'成':['🏆','成功','成长'],'种':['🌱','种树','种子'],
+    '起':['⬆️','起来','起床'],'节':['🎉','节日','过节'],'年':['📅','过年','新年'],
+    '时':['⏰','时间','此时'],'间':['🕐','中间','时间'],'空':['🌌','天空','空气'],
+    '地':['🌍','土地','大地'],'田':['🌾','水田','田地'],'村':['🏡','村子','农村'],
+    '路':['🛣️','道路','走路'],'双':['👐','双手','一双'],'朵':['🌸','花朵','云朵'],
+    '首':['🎵','首先','歌首'],'片':['🍃','叶片','一片'],'条':['🐟','一条','条件'],
+    '块':['🪨','一块','石块'],'座':['💺','座位','一座'],'棵':['🌳','一棵','树棵'],
+    '只':['🐦','一只','只有']
+};
+
+function getSafePinyin(c){
+    try{ if(typeof pinyinPro!=='undefined'&&pinyinPro.pinyin) return pinyinPro.pinyin(c,{toneType:'symbol'}); }catch(e){}
+    return "";
+}
+
+// 提取：检测是否为纯Emoji的工具函数
+function isPureEmoji(str) {
+    if (!str) return false;
+    const emojiRe = /^\p{Emoji}/u;
+    return emojiRe.test(str) && str.replace(/[\p{Emoji}\uFE0F\u200D\s]/gu, '').length === 0;
+}
+
+// 获取字对应的展示内容
+function getContentForChar(c){ 
+    return D[c] || [c + '字', '含' + c + '词', '学' + c + '字']; 
+}
+
+// 渲染一个展示项（并为文字自动附加发音功能）
+function renderDisplayItem(str, el, isLarge=true){
+    el.innerHTML='';
+    // 增加 transition 和圆角
+    el.className='slide-in-right select-none flex items-center justify-center w-full h-full transition-transform rounded-xl';
+    
+    const isEmoji = isPureEmoji(str);
+    const hintEl = document.getElementById('learn-image-hint');
+
+    if(isEmoji){
+        el.style.fontSize = isLarge ? 'clamp(4rem,16vh,7rem)' : 'clamp(3rem,12vh,5rem)';
+        el.innerText = str;
+        el.onclick = null;
+        el.classList.remove('cursor-pointer', 'active:scale-95', 'hover:bg-blue-50/50');
+        if(hintEl) hintEl.classList.add('hidden');
+    } else {
+        // 普通的中文词组文字，学习模式照常显示文字
+        el.style.fontSize = str.length<=2 ? 'clamp(3rem,11vh,5rem)' : 'clamp(2rem,7vh,3.5rem)';
+        el.innerText = str;
+        el.classList.add('cursor-pointer', 'active:scale-95', 'hover:bg-blue-50/50');
+        el.onclick = (e) => {
+            e.stopPropagation();
+            app.playWordAudio(str);
+        };
+        if(hintEl) hintEl.classList.remove('hidden');
+    }
+}
+
+const app={
+    allCharsInSession:[], charsToLearn:[], failedChars:[],
+    currentIndex:0, currentStep:0, score:0,
+    quizSequence:[], currentQuizMode:'pinyin',
+    bgmInitialized:false, isReviewMode:false, hasCurrentQuestionMistake:false,
+
+    init(){
+        document.getElementById('btn-home-back').addEventListener('click',()=>this.goHome());
+        this.initLessons();
+        const startAudio=()=>{
+            if(!this.bgmInitialized){
+                this.bgmInitialized=true; sound.init(); sound.playBGM();
+                const b=document.getElementById('btn-bgm'); b.innerText='🎵'; b.classList.remove('opacity-50');
+                document.removeEventListener('click',startAudio); document.removeEventListener('touchstart',startAudio);
+            }
+        };
+        document.addEventListener('click',startAudio); document.addEventListener('touchstart',startAudio);
+        ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange']
+            .forEach(e=>document.addEventListener(e,()=>this.updateFullscreenBtn()));
+    },
+
+    toggleFullscreen(){
+        const d=document,el=d.documentElement;
+        const req=el.requestFullscreen||el.mozRequestFullScreen||el.webkitRequestFullScreen||el.msRequestFullscreen;
+        const ex=d.exitFullscreen||d.mozCancelFullScreen||d.webkitExitFullscreen||d.msExitFullscreen;
+        (!d.fullscreenElement&&!d.mozFullScreenElement&&!d.webkitFullscreenElement&&!d.msFullscreenElement)
+            ? req&&req.call(el) : ex&&ex.call(d);
+    },
+
+    updateFullscreenBtn(){
+        const btn=document.getElementById('btn-fullscreen');
+        const isFull=document.fullscreenElement||document.mozFullScreenElement||document.webkitFullscreenElement||document.msFullscreenElement;
+        btn.innerText=isFull?'↙️':'⛶';
+        const c=document.getElementById('app-container'),b=document.getElementById('app-body');
+        if(isFull){ c.classList.remove('sm:rounded-3xl'); c.classList.add('rounded-none'); b.classList.remove('sm:p-4'); b.classList.add('p-0'); }
+        else{ c.classList.add('sm:rounded-3xl'); c.classList.remove('rounded-none'); b.classList.add('sm:p-4'); b.classList.remove('p-0'); }
+    },
+
+    toggleBGM(){
+        this.bgmInitialized=true;
+        const btn=document.getElementById('btn-bgm');
+        if(!sound.isPlaying){ sound.playBGM(); btn.innerText='🎵'; btn.classList.remove('opacity-50'); }
+        else{ sound.stopBGM(); btn.innerText='🔇'; btn.classList.add('opacity-50'); }
+    },
+
+    updateGroupSize(){
+        let v=parseInt(document.getElementById('chars-per-level').value);
+        if(isNaN(v)||v<5) v=5; if(v>100) v=100;
+        document.getElementById('chars-per-level').value=v; this.initLessons();
+    },
+
+    initLessons(){
+        const unique=[...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
+        const gs=parseInt(document.getElementById('chars-per-level').value)||5;
+        const sel=document.getElementById('lesson-select'); sel.innerHTML='';
+        for(let i=0;i<unique.length;i+=gs){
+            const chars=unique.slice(i,i+gs).join('');
+            const opt=document.createElement('option');
+            opt.value=chars; opt.innerText=`第${Math.floor(i/gs)+1}关（第${i+1}~${Math.min(i+gs,unique.length)}字）`;
+            sel.appendChild(opt);
+        }
+        this.changeLesson();
+    },
+
+    changeLesson(){ document.getElementById('input-chars').value=document.getElementById('lesson-select').value; },
+
+    parseInput(){
+        const m=document.getElementById('input-chars').value.match(/[\u4e00-\u9fa5]/g);
+        if(!m||m.length===0){ alert("请至少输入一个汉字哦！"); return false; }
+        this.allCharsInSession=[...new Set(m)]; return true;
+    },
+
+    switchView(id){
+        ['view-home','view-learn','view-quiz','modal-msg-box'].forEach(v=>document.getElementById(v).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById('btn-home-back').classList.toggle('hidden',id==='view-home');
+    },
+
+    goHome(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); this.switchView('view-home'); },
+    startFlow(){ if(!this.parseInput()) return; this.score=0; this.isReviewMode=false; this.startLearningPhase(this.allCharsInSession); },
+
+    startLearningPhase(arr){
+        this.charsToLearn=arr; this.currentIndex=0;
+        this.switchView('view-learn'); this.renderLearnCard();
+    },
+
+    renderLearnCard(){
+        const c=this.charsToLearn[this.currentIndex];
+        this.currentStep=0;
+        
+        // 动态更新学习界面的进度文本 (例如: 1/5)
+        const t=document.getElementById('learn-title');
+        const progressText = ` (${this.currentIndex+1}/${this.charsToLearn.length})`;
+        if(this.isReviewMode){ 
+            t.innerText=`复习没记住的字` + progressText; 
+            t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-pink-500'; 
+        } else { 
+            t.innerText=`正在学习新字` + progressText; 
+            t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600'; 
+        }
+
+        document.getElementById('learn-char').innerText=c;
+        document.getElementById('learn-pinyin').innerText=getSafePinyin(c);
+        this.updateLearnImage(c); this.updateLearnButtonText();
+        document.getElementById('learn-progress').style.width=`${((this.currentIndex+1)/this.charsToLearn.length)*100}%`;
+        const card=document.getElementById('view-learn').querySelector('.bg-white');
+        card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
+        setTimeout(()=>this.playAudio(),100);
+    },
+
+    updateLearnImage(c){
+        const contents=getContentForChar(c);
+        const el=document.getElementById('learn-image');
+        el.classList.remove('slide-in-right'); void el.offsetWidth;
+        const disp=contents[this.currentStep%contents.length];
+        renderDisplayItem(disp, el, true);
+        el.classList.add('slide-in-right');
+    },
+
+    updateLearnButtonText(){
+        const c=this.charsToLearn[this.currentIndex];
+        const contents=getContentForChar(c);
+        const btn=document.getElementById('btn-learn-next');
+        if(this.currentStep<contents.length-1){
+            btn.innerText=`下一个演示（${this.currentStep+1}/${contents.length}）`;
+            btn.className='w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0';
+        } else {
+            btn.innerText='记住了，下一个 ➡️';
+            btn.className='w-full bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none shrink-0';
+        }
+    },
+
+    handleLearnNext(){
+        const c=this.charsToLearn[this.currentIndex];
+        const contents=getContentForChar(c);
+        if(this.currentStep<contents.length-1){ this.currentStep++; this.updateLearnImage(c); this.updateLearnButtonText(); this.playAudio(); }
+        else{ this.nextChar(); }
+    },
+
+    nextChar(){ if(this.currentIndex<this.charsToLearn.length-1){ this.currentIndex++; this.renderLearnCard(); } else{ this.startQuizPhase(); } },
+
+    startQuizPhase(){
+        this.failedChars=[]; this.currentIndex=0;
+        this.quizSequence=[...this.charsToLearn].sort(()=>Math.random()-0.5);
+        this.currentQuizMode=document.getElementById('quiz-mode-select').value;
+        this.switchView('view-quiz');
+        document.getElementById('quiz-prompt').innerText=this.currentQuizMode==='pinyin'?'它的拼音是哪个？':'哪一个是它？';
+        this.renderQuizQuestion();
+    },
+
+    renderQuizQuestion(){
+        if(this.currentIndex>=this.quizSequence.length){ this.checkQuizResult(); return; }
+        this.hasCurrentQuestionMistake=false;
+        const target=this.quizSequence[this.currentIndex];
+        document.getElementById('quiz-char').innerText=target;
+        document.getElementById('quiz-score').innerText=this.score;
+        document.getElementById('quiz-progress-text').innerText=`${this.currentIndex+1}/${this.quizSequence.length}`;
+
+        let rawTargetAnswer;
+        if(this.currentQuizMode==='pinyin'){ 
+            rawTargetAnswer = target; 
+        } else { 
+            const tc=getContentForChar(target); 
+            rawTargetAnswer=tc[Math.floor(Math.random()*tc.length)]; 
+        }
+
+        // 测试时核心逻辑：如果是汉字词组（非纯图片），强制转为拼音展示，防止小孩不认识选项文字
+        let targetDisplay = isPureEmoji(rawTargetAnswer) ? rawTargetAnswer : (getSafePinyin(rawTargetAnswer) || rawTargetAnswer);
+
+        let used=new Set([targetDisplay]);
+        // 记录 display (展示文本) 和 originalText (原始中文，用于发音)
+        let opts=[{ display: targetDisplay, originalText: rawTargetAnswer, isTarget: true }];
+
+        const getDistinct=(char)=>{
+            if(this.currentQuizMode==='pinyin'){
+                const py=getSafePinyin(char) || char; 
+                if(!used.has(py)) return { display: py, originalText: char };
+                return null;
+            } else {
+                const cs=getContentForChar(char);
+                for(const item of [...cs].sort(()=>Math.random()-0.5)) {
+                    // 同理，干扰项如果不是图片，也全部转为拼音
+                    const disp = isPureEmoji(item) ? item : (getSafePinyin(item) || item);
+                    if(!used.has(disp)) return { display: disp, originalText: item };
+                }
+                return null;
+            }
+        };
+
+        const avail=[...new Set([...this.allCharsInSession,...Object.keys(D)])]
+            .filter(c=>c!==target).sort(()=>Math.random()-0.5);
+        for(const char of avail){ 
+            if(opts.length>=4) break; 
+            const item=getDistinct(char); 
+            if(item){ used.add(item.display); opts.push(item); } 
+        }
+        opts=opts.sort(()=>Math.random()-0.5);
+
+        const container=document.getElementById('quiz-options'); container.innerHTML='';
+        opts.forEach(opt=>{
+            const btn=document.createElement('button');
+            btn.className='bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl w-full h-full flex items-center justify-center shadow-sm hover:shadow-md hover:border-blue-300 transition-all active:scale-95 focus:outline-none overflow-hidden font-bold text-gray-700';
+            
+            if(!isPureEmoji(opt.display)){
+                btn.innerText=opt.display; 
+                btn.classList.add('font-sans','tracking-widest');
+                // 动态调整拼音大小，防止长词组拼音超出按钮
+                btn.style.fontSize = opt.display.length > 10 ? 'clamp(1.1rem,4.5vh,2rem)' : 'clamp(1.5rem,6vh,2.5rem)';
+            } else {
+                btn.innerText=opt.display; 
+                btn.style.fontSize='clamp(3rem,11vh,5rem)'; 
+            }
+            
+            btn.onclick=()=>this.handleQuizAnswer(opt.isTarget, btn, target, opt.originalText);
+            container.appendChild(btn);
+        });
+
+        this.playAudio();
+        const box=document.getElementById('quiz-char').parentElement;
+        box.classList.remove('bounce-in'); void box.offsetWidth; box.classList.add('bounce-in');
+    },
+
+    // 播放指定文字的语音
+    playWordAudio(text) {
+        if (!text) return false;
+        if (!isPureEmoji(text) && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'zh-CN';
+            u.rate = 0.8;
+            window.speechSynthesis.speak(u);
+            return true; // 返回 true 表示发出了声音
+        }
+        return false;
+    },
+
+    handleQuizAnswer(correct, btn, targetChar, originalText){
+        // 点选选项时，底层用原始汉字文本进行朗读，确保发音准确自然
+        const isSpoken = this.playWordAudio(originalText);
+
+        if(correct){
+            if(!this.hasCurrentQuestionMistake) this.score+=10;
+            btn.classList.add('bg-green-100','border-green-500');
+            confetti({particleCount:60,spread:65,origin:{y:0.8},colors:['#22c55e','#ec4899','#3b82f6','#eab308']});
+            document.getElementById('quiz-options').querySelectorAll('button').forEach(b=>b.disabled=true);
+            setTimeout(()=>{ this.currentIndex++; this.renderQuizQuestion(); },900);
+        } else {
+            btn.classList.add('shake','bg-red-50','border-red-400');
+            if(!this.hasCurrentQuestionMistake){ this.hasCurrentQuestionMistake=true; if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); }
+            setTimeout(()=>btn.classList.remove('shake','bg-red-50','border-red-400'),400);
+            
+            // 如果点选的是纯图片(没有触发文字发音)，则给个 "再想想哦" 的语音提示
+            if(!isSpoken && 'speechSynthesis' in window){ 
+                const u=new SpeechSynthesisUtterance('再想想哦'); 
+                u.lang='zh-CN'; u.rate=1.2; 
+                window.speechSynthesis.speak(u); 
+            }
+        }
+    },
+
+    checkQuizResult(){
+        if(this.failedChars.length>0){
+            this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个字刚才没认出来，<br>我们把它们再学一遍吧！`,'⚠️','好的，去复习',()=>{ this.isReviewMode=true; this.startLearningPhase([...this.failedChars]); });
+        } else {
+            this.showModal('太棒了！',`所有的字都掌握啦！<br>本次总分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！`,'🎉','返回首页',()=>this.goHome());
+            const end=Date.now()+3000;
+            (function f(){ confetti({particleCount:5,angle:60,spread:55,origin:{x:0}}); confetti({particleCount:5,angle:120,spread:55,origin:{x:1}}); if(Date.now()<end) requestAnimationFrame(f); })();
+        }
+    },
+
+    playAudio(){
+        let c='';
+        if(!document.getElementById('view-learn').classList.contains('hidden')) c=this.charsToLearn[this.currentIndex];
+        else if(!document.getElementById('view-quiz').classList.contains('hidden')) c=document.getElementById('quiz-char').innerText;
+        if(c&&'speechSynthesis' in window){ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(c); u.lang='zh-CN'; u.rate=0.8; window.speechSynthesis.speak(u); }
+    },
+
+    showModal(title,msgHtml,icon,btnText,cb){
+        document.getElementById('modal-title').innerText=title;
+        document.getElementById('modal-msg').innerHTML=msgHtml;
+        document.getElementById('modal-icon').innerText=icon;
+        const btn=document.getElementById('modal-btn');
+        btn.innerText=btnText;
+        btn.onclick=()=>{ document.getElementById('modal-msg-box').classList.add('hidden'); if(cb) cb(); };
+        document.getElementById('modal-msg-box').classList.remove('hidden');
+    }
+};
+
+window.onload=()=>{ try{ app.init(); }catch(e){ console.error(e); } };
+</script>
+</body>
+</html>
