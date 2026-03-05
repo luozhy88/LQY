@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 v6.2 (艾宾浩斯云端版)</title>
+    <title>识字小达人 v6.4 (无缝云端同步版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -30,7 +30,7 @@
         <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
         <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
             🌟 识字小达人 🌟
-            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.2</span>
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.4</span>
         </h1>
         <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
         <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
@@ -39,7 +39,7 @@
     <!-- 主页 -->
     <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
         
-        <!-- 用户账户选择系统 -->
+        <!-- 用户账户系统 (已移除繁琐的同步码，通过姓名自动同步) -->
         <div class="bg-white p-3 sm:p-4 rounded-2xl border-2 border-green-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <label class="text-base sm:text-lg font-bold text-green-700 flex items-center gap-2">
                 👤 当前学习者：
@@ -96,7 +96,7 @@
         
         <!-- 顶部工具栏 (含清除按钮) -->
         <div class="bg-purple-50 p-3 rounded-xl text-xs sm:text-sm text-purple-700 font-bold flex justify-between items-center shrink-0 border border-purple-100 shadow-sm">
-            <div>当前查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span></div>
+            <div>查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span></div>
             <button onclick="app.clearDashboard()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-transform flex items-center gap-1">
                 🗑️ 清空该账户
             </button>
@@ -218,28 +218,44 @@ try {
 }
 
 // --------------------------------------------------------------------
-// 数据库操作核心 API
+// 数据库操作核心 API (已全面支持基于学习者的无缝同步)
 // --------------------------------------------------------------------
 let inMemoryMistakes = []; // 内存保底数据库，确保在预览环境下也能完美测试
 
-// 获取当前用户所有的词库记录（用于展示面板）
-async function dbGetAllMistakes() {
+// 获取正确的云端路径（直接使用学习者作为公用共享路径）
+function getDbPaths(docId) {
     const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    const safeProfile = encodeURIComponent(profile);
     
-    if (!db || !user) {
+    let colRef = null;
+    let docRefFixed = null;
+
+    if (user && db) {
+        // 核心改动：使用公共数据池，通过学习者名字(profile)建立独立集合，实现跨设备完全同步
+        colRef = collection(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`);
+        if (docId) docRefFixed = doc(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`, docId);
+    }
+    
+    return { colRef, docRefFixed };
+}
+
+// 获取当前用户所有的词库记录（用于展示面板）
+async function dbGetAllMistakes() {
+    const profile = document.getElementById('user-profile').value;
+    const { colRef } = getDbPaths();
+    
+    if (!db || !colRef) {
         return inMemoryMistakes.filter(m => m.profile === profile).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
     }
     
-    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const all = [];
         snap.forEach(d => {
             const data = d.data();
-            if (data.profile === profile) all.push(data);
+            all.push(data); // 集合已经按 profile 隔离了
         });
-        // 按照下次复习时间排序（最紧急的在最上面）
         all.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
         return all;
     } catch(e) { console.error("抓取所有数据失败", e); return []; }
@@ -247,21 +263,20 @@ async function dbGetAllMistakes() {
 
 // 1. 获取当前用户需要复习的到期单词
 async function dbGetDueReviews() {
-    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
     const now = Date.now();
+    const { colRef } = getDbPaths();
     
-    if (!db || !user) {
+    if (!db || !colRef) {
         return inMemoryMistakes.filter(m => m.profile === profile && m.nextReviewTime <= now).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
     }
 
-    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const due = [];
         snap.forEach(d => {
             const data = d.data();
-            if (data.profile === profile && data.nextReviewTime <= now) {
+            if (data.nextReviewTime <= now) {
                 due.push(data);
             }
         });
@@ -272,11 +287,12 @@ async function dbGetDueReviews() {
 
 // 2. 在正常学习中记录新产生的错题
 async function dbRecordMistake(char) {
-    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
     const nextTime = Date.now() + EBBINGHAUS_INTERVALS[1]; // 下次复习: 5分钟后
+    const docId = encodeURIComponent(char); // 集合已按profile隔离，直接用char做ID
+    const { colRef, docRefFixed } = getDbPaths(docId);
 
-    if (!db || !user) {
+    if (!db || !colRef) {
         const existing = inMemoryMistakes.find(m => m.char === char && m.profile === profile);
         if (existing) {
             existing.level = 1;
@@ -287,26 +303,24 @@ async function dbRecordMistake(char) {
         return;
     }
 
-    const docId = encodeURIComponent(`${profile}_${char}`);
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
-
     try {
-        const snap = await getDoc(docRef);
+        const snap = await getDoc(docRefFixed);
         if (snap.exists()) {
             const data = snap.data();
-            await setDoc(docRef, { ...data, level: 1, nextReviewTime: nextTime });
+            await setDoc(docRefFixed, { ...data, level: 1, nextReviewTime: nextTime });
         } else {
-            await setDoc(docRef, { char, profile, level: 1, nextReviewTime: nextTime });
+            await setDoc(docRefFixed, { char, profile, level: 1, nextReviewTime: nextTime });
         }
     } catch(e) { console.error("记录错题失败", e); }
 }
 
 // 3. 在艾宾浩斯复习模式中，根据回答正确与否更新曲线
 async function dbUpdateReview(char, isCorrect) {
-    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    const docId = encodeURIComponent(char);
+    const { colRef, docRefFixed } = getDbPaths(docId);
 
-    if (!db || !user) {
+    if (!db || !colRef) {
         const existingIdx = inMemoryMistakes.findIndex(m => m.char === char && m.profile === profile);
         if (existingIdx !== -1) {
             const data = inMemoryMistakes[existingIdx];
@@ -326,22 +340,19 @@ async function dbUpdateReview(char, isCorrect) {
         return;
     }
 
-    const docId = encodeURIComponent(`${profile}_${char}`);
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
-
     try {
-        const snap = await getDoc(docRef);
+        const snap = await getDoc(docRefFixed);
         if (snap.exists()) {
             const data = snap.data();
             if (isCorrect) {
                 const nextLevel = data.level + 1;
                 if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
-                    await deleteDoc(docRef);
+                    await deleteDoc(docRefFixed);
                 } else {
-                    await setDoc(docRef, { ...data, level: nextLevel, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[nextLevel] });
+                    await setDoc(docRefFixed, { ...data, level: nextLevel, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[nextLevel] });
                 }
             } else {
-                await setDoc(docRef, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+                await setDoc(docRefFixed, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
             }
         }
     } catch(e) { console.error("更新复习曲线失败", e); }
@@ -349,22 +360,19 @@ async function dbUpdateReview(char, isCorrect) {
 
 // 4. 清理所有数据
 async function dbClearAll() {
-    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    const { colRef } = getDbPaths();
 
-    if (!db || !user) {
+    if (!db || !colRef) {
         inMemoryMistakes = inMemoryMistakes.filter(m => m.profile !== profile);
         return;
     }
 
-    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const deletePromises = [];
         snap.forEach(d => {
-            if (d.data().profile === profile) {
-                deletePromises.push(deleteDoc(d.ref));
-            }
+            deletePromises.push(deleteDoc(d.ref));
         });
         await Promise.all(deletePromises);
     } catch(e) { console.error("清理数据库失败", e); throw e; }
@@ -598,7 +606,7 @@ const app={
         const selectEl = document.getElementById('user-profile');
         const userText = selectEl.options[selectEl.selectedIndex].text;
         
-        document.getElementById('dashboard-user-name').innerText = userText;
+        document.getElementById('dashboard-user-name').innerHTML = userText;
         listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端调取记忆数据...</div>';
 
         try {
@@ -649,7 +657,9 @@ const app={
     // 清空当前用户的记忆库 (带双重确认)
     // ----------------------------------------------------
     clearDashboard() {
-        const userName = document.getElementById('dashboard-user-name').innerText;
+        const selectEl = document.getElementById('user-profile');
+        const userName = selectEl.options[selectEl.selectedIndex].text;
+        
         this.showConfirmModal(
             '⚠️ 确认清空', 
             `确定要彻底清空 <b>${userName}</b> 的所有艾宾浩斯记忆数据吗？<br><span class="text-sm text-red-500 mt-2 block">注意：此操作不可恢复！</span>`, 
@@ -694,7 +704,8 @@ const app={
                 // 进入艾宾浩斯优先复习流
                 this.isEbbinghausMode = true;
                 this.ebbinghausQueue = dueReviews.map(r => r.char);
-                const userName = document.getElementById('user-profile').value;
+                const selectEl = document.getElementById('user-profile');
+                const userName = selectEl.options[selectEl.selectedIndex].text;
                 
                 this.showModal(
                     '📈 艾宾浩斯智能复习', 
@@ -887,6 +898,13 @@ const app={
         
         for (const word of combinedWordPool) {
             if (opts.length >= 4) break;
+            
+            // 🚨 重大修复：在“看拼音找字”模式中，如果混淆项和正确答案的发音一模一样（比如清和青），则坚决不能放出来，否则会导致两个正确答案！
+            if (this.currentQuizMode === 'pinyin2word') {
+                if (word !== target && getSafePinyin(word) === getSafePinyin(target)) {
+                    continue; // 过滤掉发音完全相同的干扰项
+                }
+            }
             
             let distDisplay;
             if (this.currentQuizMode === 'pinyin') {
