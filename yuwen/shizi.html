@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 v6.4 (无缝云端同步版)</title>
+    <title>识字小达人 v6.5 (解决刷新丢失Bug)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -30,7 +30,7 @@
         <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
         <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
             🌟 识字小达人 🌟
-            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.4</span>
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.5</span>
         </h1>
         <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
         <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
@@ -39,7 +39,7 @@
     <!-- 主页 -->
     <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
         
-        <!-- 用户账户系统 (已移除繁琐的同步码，通过姓名自动同步) -->
+        <!-- 用户账户系统 -->
         <div class="bg-white p-3 sm:p-4 rounded-2xl border-2 border-green-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <label class="text-base sm:text-lg font-bold text-green-700 flex items-center gap-2">
                 👤 当前学习者：
@@ -181,6 +181,10 @@ let auth = null;
 let currentUser = null;
 let appId = 'default-app-id';
 
+// 核心修复：建立鉴权等待机制，防止刚刷新就读取导致读不到数据
+let authResolve;
+const authReady = new Promise(resolve => { authResolve = resolve; });
+
 // 艾宾浩斯时间间隔配置 (级别0=新学期不记录时间, 后续级别毫秒数)
 // [ 0级, 5分钟, 30分钟, 12小时, 1天, 2天, 4天, 7天, 15天 ]
 const EBBINGHAUS_INTERVALS = [
@@ -204,17 +208,25 @@ try {
         appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) {
+                console.error("Firebase登录失败:", e);
             }
+            authResolve(); // 关键：等完全登录成功后，再放行后续的数据请求
         };
         initAuth();
         onAuthStateChanged(auth, user => { currentUser = user; });
+    } else {
+        authResolve(); // 没有配置时，直接放行使用内存数据
     }
 } catch (e) {
     console.warn("Firestore 云端环境未就绪，使用会话级体验", e);
+    authResolve();
 }
 
 // --------------------------------------------------------------------
@@ -222,9 +234,11 @@ try {
 // --------------------------------------------------------------------
 let inMemoryMistakes = []; // 内存保底数据库，确保在预览环境下也能完美测试
 
-// 获取正确的云端路径（直接使用学习者作为公用共享路径）
-function getDbPaths(docId) {
-    const user = auth?.currentUser;
+// 获取正确的云端路径（强制等待鉴权完成！）
+async function getDbPaths(docId) {
+    await authReady; // 核心修复：如果在刷新瞬间请求数据，在这里必须排队等候！
+    
+    const user = auth?.currentUser || currentUser;
     const profile = document.getElementById('user-profile').value;
     const safeProfile = encodeURIComponent(profile);
     
@@ -232,7 +246,6 @@ function getDbPaths(docId) {
     let docRefFixed = null;
 
     if (user && db) {
-        // 核心改动：使用公共数据池，通过学习者名字(profile)建立独立集合，实现跨设备完全同步
         colRef = collection(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`);
         if (docId) docRefFixed = doc(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`, docId);
     }
@@ -243,7 +256,7 @@ function getDbPaths(docId) {
 // 获取当前用户所有的词库记录（用于展示面板）
 async function dbGetAllMistakes() {
     const profile = document.getElementById('user-profile').value;
-    const { colRef } = getDbPaths();
+    const { colRef } = await getDbPaths();
     
     if (!db || !colRef) {
         return inMemoryMistakes.filter(m => m.profile === profile).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
@@ -265,7 +278,7 @@ async function dbGetAllMistakes() {
 async function dbGetDueReviews() {
     const profile = document.getElementById('user-profile').value;
     const now = Date.now();
-    const { colRef } = getDbPaths();
+    const { colRef } = await getDbPaths();
     
     if (!db || !colRef) {
         return inMemoryMistakes.filter(m => m.profile === profile && m.nextReviewTime <= now).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
@@ -290,7 +303,7 @@ async function dbRecordMistake(char) {
     const profile = document.getElementById('user-profile').value;
     const nextTime = Date.now() + EBBINGHAUS_INTERVALS[1]; // 下次复习: 5分钟后
     const docId = encodeURIComponent(char); // 集合已按profile隔离，直接用char做ID
-    const { colRef, docRefFixed } = getDbPaths(docId);
+    const { colRef, docRefFixed } = await getDbPaths(docId);
 
     if (!db || !colRef) {
         const existing = inMemoryMistakes.find(m => m.char === char && m.profile === profile);
@@ -318,7 +331,7 @@ async function dbRecordMistake(char) {
 async function dbUpdateReview(char, isCorrect) {
     const profile = document.getElementById('user-profile').value;
     const docId = encodeURIComponent(char);
-    const { colRef, docRefFixed } = getDbPaths(docId);
+    const { colRef, docRefFixed } = await getDbPaths(docId);
 
     if (!db || !colRef) {
         const existingIdx = inMemoryMistakes.findIndex(m => m.char === char && m.profile === profile);
@@ -361,7 +374,7 @@ async function dbUpdateReview(char, isCorrect) {
 // 4. 清理所有数据
 async function dbClearAll() {
     const profile = document.getElementById('user-profile').value;
-    const { colRef } = getDbPaths();
+    const { colRef } = await getDbPaths();
 
     if (!db || !colRef) {
         inMemoryMistakes = inMemoryMistakes.filter(m => m.profile !== profile);
@@ -607,7 +620,7 @@ const app={
         const userText = selectEl.options[selectEl.selectedIndex].text;
         
         document.getElementById('dashboard-user-name').innerHTML = userText;
-        listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端调取记忆数据...</div>';
+        listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端安全连接并调取记忆数据...</div>';
 
         try {
             const data = await dbGetAllMistakes();
