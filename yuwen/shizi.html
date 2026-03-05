@@ -1,0 +1,988 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>识字小达人 v6.0 (艾宾浩斯云端版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family:"Comic Sans MS","Chalkboard SE","楷体","KaiTi",sans-serif; background-color:#f0fdf4; background-image:radial-gradient(#bbf7d0 2px,transparent 2px); background-size:30px 30px; touch-action:manipulation; }
+        ruby { ruby-align:center; }
+        rt { font-family:Arial,sans-serif; color:#ef4444; margin-bottom:2px; }
+        .bounce-in { animation:bounceIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+        @keyframes bounceIn { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+        .shake { animation:shake 0.4s ease-in-out; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 50%{transform:translateX(10px)} 75%{transform:translateX(-10px)} }
+        .slide-in-right { animation:slideInRight 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+        @keyframes slideInRight { 0%{transform:translateX(80px) scale(0.8);opacity:0} 100%{transform:translateX(0) scale(1);opacity:1} }
+        .card-shadow { box-shadow:0 10px 25px -5px rgba(0,0,0,0.1),0 8px 10px -6px rgba(0,0,0,0.1); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        .break-words-center { word-break: break-word; white-space: normal; text-align: center; line-height: 1.2; padding: 0.5rem; }
+    </style>
+</head>
+<body id="app-body" class="h-[100dvh] w-full flex flex-col items-center justify-center sm:p-4 text-gray-800 overflow-hidden">
+<div id="app-container" class="w-full h-full max-w-4xl bg-white sm:rounded-3xl card-shadow overflow-hidden relative flex flex-col">
+    <header class="bg-green-400 text-white p-2 sm:p-4 text-center relative z-10 shadow-md shrink-0">
+        <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
+        <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
+            🌟 识字小达人 🌟
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.0</span>
+        </h1>
+        <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
+        <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
+    </header>
+
+    <!-- 主页 -->
+    <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
+        
+        <!-- 新增：用户账户选择系统 -->
+        <div class="bg-white p-3 sm:p-4 rounded-2xl border-2 border-green-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <label class="text-base sm:text-lg font-bold text-green-700 flex items-center gap-2">
+                👤 当前学习者：
+            </label>
+            <select id="user-profile" class="w-full sm:w-auto p-2 border-2 border-green-400 rounded-xl font-bold text-gray-700 focus:outline-none bg-green-50 shadow-inner text-center">
+                <option value="艾米" selected>👧 艾米 (Amy)</option>
+                <option value="乔治">👦 乔治 (George)</option>
+                <option value="其他">👤 其他用户</option>
+            </select>
+        </div>
+
+        <div class="bg-yellow-100 p-4 rounded-2xl border-2 border-yellow-300 flex flex-col gap-3">
+            <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-yellow-200 shadow-sm">
+                <label class="text-base font-bold text-yellow-800">⚙️ 每关字/词数：</label>
+                <select id="chars-per-level" class="w-24 p-1 border-2 border-yellow-300 rounded-lg text-center font-bold text-gray-700 focus:outline-none bg-white" onchange="app.initLessons()">
+                    <option value="all">全部</option>
+                    <option value="5" selected>5个</option>
+                    <option value="10">10个</option>
+                    <option value="15">15个</option>
+                    <option value="20">20个</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-lg font-bold text-yellow-800 mb-1">📚 选择学习进度：</label>
+                <select id="lesson-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none" onchange="app.changeLesson()"></select>
+            </div>
+            <div>
+                <label class="block text-lg font-bold text-yellow-800 mb-1">🎮 测验模式：</label>
+                <select id="quiz-mode-select" class="w-full p-2 rounded-xl border-2 border-yellow-200 text-lg bg-white shadow-sm text-gray-700 font-bold focus:outline-none">
+                    <option value="pinyin2word" selected>看拼音找字/词（纯测验模式）</option>
+                    <option value="pinyin">看字找拼音（纯测验模式）</option>
+                    <option value="image">看字找图/词（带学习模式）</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-yellow-700 mb-1">✏️ 本关要学的内容（用空格隔开可支持词语）：</label>
+                <textarea id="input-chars" class="w-full min-h-[80px] p-3 rounded-xl border-2 border-yellow-200 text-lg tracking-wide leading-relaxed resize-none focus:outline-none" rows="2" placeholder="例如：清明 学生 一清二白..."></textarea>
+            </div>
+        </div>
+        <button id="btn-start-flow" onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl sm:text-2xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-none active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
+            <span>🚀 开始闯关</span>
+        </button>
+        <!-- 新增：查看记忆词库按钮 -->
+        <button onclick="app.showDashboard()" class="bg-purple-500 hover:bg-purple-600 text-white text-lg sm:text-xl font-bold py-3 rounded-2xl shadow-[0_5px_0_#a855f7] active:shadow-none active:translate-y-[5px] transition-all flex items-center justify-center gap-2">
+            <span>📊 查看记忆词库与计划</span>
+        </button>
+    </div>
+
+    <!-- 新增：记忆词库面板 -->
+    <div id="view-dashboard" class="hidden flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in relative min-h-0">
+        <h2 class="text-xl sm:text-2xl font-bold text-center text-purple-600 shrink-0 flex items-center justify-center gap-2">
+            <span>🧠</span> 艾宾浩斯记忆库
+        </h2>
+        <div class="bg-purple-50 p-3 rounded-xl text-xs sm:text-sm text-purple-700 font-bold text-center shrink-0 border border-purple-100 shadow-sm">
+            当前查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span>
+        </div>
+        <div id="dashboard-list" class="flex-1 overflow-y-auto space-y-3 pb-4 pr-1">
+            <!-- 动态生成列表 -->
+        </div>
+    </div>
+
+    <!-- 学习模式 -->
+    <div id="view-learn" class="hidden flex-1 p-3 sm:p-6 flex flex-col items-center justify-center gap-2 sm:gap-4 bounce-in relative min-h-0">
+        <div class="w-full bg-gray-200 rounded-full h-2 relative shrink-0 mt-3 sm:mt-0">
+            <div id="learn-progress" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+            <div id="learn-title" class="absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600">正在学习新内容</div>
+        </div>
+        <div class="bg-white border-4 border-blue-200 rounded-2xl sm:rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 min-h-0">
+            <!-- 左：汉字+拼音 -->
+            <div class="w-[45%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-2 sm:p-4 bg-blue-50/40 cursor-pointer group relative" onclick="app.playAudio()">
+                <ruby class="font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors break-words-center w-full" style="font-size:clamp(2.5rem,8vh,5rem);">
+                    <span id="learn-char">水</span>
+                    <rt id="learn-pinyin" class="tracking-wider font-sans" style="font-size:clamp(1rem,3vh,2rem);"></rt>
+                </ruby>
+                <div class="absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white px-2 py-0.5 rounded-full shadow-sm border border-blue-100">🔊 点击发音</div>
+            </div>
+            <!-- 右：图示区 -->
+            <div class="w-[55%] flex flex-col p-2 sm:p-4 bg-white min-h-0 relative">
+                <div class="flex-1 flex items-center justify-center overflow-hidden min-h-0 w-full relative">
+                    <div id="learn-image" class="w-full text-center flex items-center justify-center"></div>
+                    <div id="learn-image-hint" class="hidden absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white/90 px-2 py-0.5 rounded-full shadow-sm border border-blue-100 pointer-events-none transition-opacity">🔊 点击读词</div>
+                </div>
+                <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0">
+                    下一个演示 (1/3)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测验模式 -->
+    <div id="view-quiz" class="hidden flex-1 p-2 sm:p-6 flex flex-col items-center gap-2 sm:gap-4 bounce-in relative min-h-0">
+        <div class="w-full flex justify-between items-center text-sm sm:text-lg font-bold text-gray-600 shrink-0">
+            <div>进度: <span id="quiz-progress-text" class="text-pink-500">1/5</span></div>
+            <div class="bg-yellow-100 px-3 py-1 rounded-full text-yellow-700">🏆 <span id="quiz-score">0</span></div>
+        </div>
+        <h2 id="quiz-prompt" class="text-base sm:text-2xl font-bold text-center text-gray-800 shrink-0 flex flex-col">
+            <span id="ebbinghaus-badge" class="hidden text-xs text-white bg-purple-500 px-2 py-1 rounded-full mb-1 mx-auto shadow-sm">🧠 艾宾浩斯复习中</span>
+            <span id="quiz-prompt-text">哪一个是它？</span>
+        </h2>
+        <div class="bg-white border-4 border-pink-200 rounded-xl sm:rounded-3xl p-4 min-w-[5rem] min-h-[5rem] max-w-[90%] sm:min-w-[7rem] sm:min-h-[7rem] flex items-center justify-center shadow-md shrink-0">
+            <span id="quiz-char" class="font-bold text-gray-800 text-center break-words leading-tight" style="font-size:clamp(2rem,6vh,4rem);">火</span>
+        </div>
+        <div id="quiz-options" class="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 w-full flex-1 min-h-0 pb-1"></div>
+    </div>
+</div>
+
+<!-- 弹窗 -->
+<div id="modal-msg-box" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center bounce-in shadow-2xl">
+        <div id="modal-icon" class="text-[60px] sm:text-[80px] mb-2">🎉</div>
+        <h2 id="modal-title" class="text-2xl sm:text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
+        <p id="modal-msg" class="text-base sm:text-lg text-gray-600 mb-4"></p>
+        <button id="modal-btn" class="w-full bg-green-500 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
+    </div>
+</div>
+
+<script type="module">
+// ====================================================================
+// Firebase 数据库与认证接入 (严格遵循安全防线与鉴权规则)
+// ====================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+let db = null;
+let auth = null;
+let currentUser = null;
+let appId = 'default-app-id';
+
+// 艾宾浩斯时间间隔配置 (级别0=新学期不记录时间, 后续级别毫秒数)
+// [ 0级, 5分钟, 30分钟, 12小时, 1天, 2天, 4天, 7天, 15天 ]
+const EBBINGHAUS_INTERVALS = [
+    0, 
+    5 * 60 * 1000,           
+    30 * 60 * 1000,          
+    12 * 60 * 60 * 1000,     
+    24 * 60 * 60 * 1000,     
+    2 * 24 * 60 * 60 * 1000, 
+    4 * 24 * 60 * 60 * 1000, 
+    7 * 24 * 60 * 60 * 1000, 
+    15 * 24 * 60 * 60 * 1000 
+];
+
+try {
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    if (Object.keys(firebaseConfig).length > 0) {
+        const appFB = initializeApp(firebaseConfig);
+        auth = getAuth(appFB);
+        db = getFirestore(appFB);
+        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+        initAuth();
+        onAuthStateChanged(auth, user => { currentUser = user; });
+    }
+} catch (e) {
+    console.warn("Firestore 云端环境未就绪，使用会话级体验", e);
+}
+
+// --------------------------------------------------------------------
+// 数据库操作核心 API
+// --------------------------------------------------------------------
+
+// 新增：获取当前用户所有的词库记录（用于展示面板）
+async function dbGetAllMistakes() {
+    if (!db || !currentUser) return [];
+    const profile = document.getElementById('user-profile').value;
+    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes');
+    try {
+        const snap = await getDocs(colRef);
+        const all = [];
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.profile === profile) all.push(data);
+        });
+        // 按照下次复习时间排序（最紧急的在最上面）
+        all.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
+        return all;
+    } catch(e) { console.error("抓取所有数据失败", e); return []; }
+}
+
+// 1. 获取当前用户需要复习的到期单词
+async function dbGetDueReviews() {
+    if (!db || !currentUser) return [];
+    const profile = document.getElementById('user-profile').value;
+    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes');
+    try {
+        const snap = await getDocs(colRef);
+        const due = [];
+        const now = Date.now();
+        snap.forEach(d => {
+            const data = d.data();
+            // 根据配置文件和到期时间筛选
+            if (data.profile === profile && data.nextReviewTime <= now) {
+                due.push(data);
+            }
+        });
+        // 按照到期紧急程度排序（最老的最先复习）
+        due.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
+        return due;
+    } catch(e) { console.error("抓取复习数据失败", e); return []; }
+}
+
+// 2. 在正常学习中记录新产生的错题
+async function dbRecordMistake(char) {
+    if (!db || !currentUser) return;
+    const profile = document.getElementById('user-profile').value;
+    const docId = encodeURIComponent(`${profile}_${char}`);
+    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes', docId);
+
+    try {
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            // 如果已存在错题记录，将其等级重置为 1 (5分钟后复习)
+            await setDoc(docRef, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+        } else {
+            // 全新错题
+            await setDoc(docRef, { char, profile, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+        }
+    } catch(e) { console.error("记录错题失败", e); }
+}
+
+// 3. 在艾宾浩斯复习模式中，根据回答正确与否更新曲线
+async function dbUpdateReview(char, isCorrect) {
+    if (!db || !currentUser) return;
+    const profile = document.getElementById('user-profile').value;
+    const docId = encodeURIComponent(`${profile}_${char}`);
+    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes', docId);
+
+    try {
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            if (isCorrect) {
+                // 回答正确，等级提升，复习间隔拉长
+                const nextLevel = data.level + 1;
+                if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
+                    await deleteDoc(docRef); // 已彻底掌握，移出错题库！
+                } else {
+                    await setDoc(docRef, { ...data, level: nextLevel, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[nextLevel] });
+                }
+            } else {
+                // 回答错误，遗忘曲线跌回谷底，重新从级别 1 开始
+                await setDoc(docRef, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+            }
+        }
+    } catch(e) { console.error("更新复习曲线失败", e); }
+}
+
+// ====================================================================
+// 核心应用逻辑
+// ====================================================================
+
+const sound = {
+    ctx:null, bgmInterval:null, isPlaying:false,
+    init(){ if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended') this.ctx.resume(); },
+    playBGM(){
+        if(!this.ctx) this.init(); this.stopBGM(); this.isPlaying=true;
+        const bd=0.5; let step=0;
+        const mel=[74,78,81,74,69,73,76,69,71,74,78,71,67,71,74,67];
+        this.bgmInterval=setInterval(()=>{
+            if(this.ctx.state!=='running') return;
+            const freq=440*Math.pow(2,(mel[step%mel.length]-69)/12);
+            this.playNote(freq,bd*0.5);
+            if(step%4===0) this.playNote(freq/4,1.0,0.04);
+            step++;
+        },bd*500);
+    },
+    playNote(freq,dur,vol=0.025){
+        const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+        o.type='sine'; o.frequency.value=freq;
+        g.gain.setValueAtTime(0,this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(vol,this.ctx.currentTime+0.02);
+        g.gain.exponentialRampToValueAtTime(0.001,this.ctx.currentTime+dur+0.4);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(); o.stop(this.ctx.currentTime+dur+0.5);
+    },
+    stopBGM(){ this.isPlaying=false; if(this.bgmInterval) clearInterval(this.bgmInterval); }
+};
+
+const allCharsStr = "春冬风雪花飞入姓什么双国王方青清气晴情请生字左右红时动万纯吃叫主江住没以多会走北京广公太阳校金秋因为他地河说也听单种居招呼快乐玩很当音讲行棋许思床前光低故乡色外看爸晚笑再午节叶米分样豆虹那着到高兴千裙成间迷造运池欢网古凉细夕李语香打拍跑足声身体之相近习远玉义首采萍无树爱尖角亮机台放鱼朵美过这呀边吗吧蚂蚁加文平办让包伙伴钟丁元洗面车共坐要连百今还舌点块非常扛往片瓜进空病她医别干奇七星吓怕跟起家羊象拦都捉条向爬姐您草房霜吹落降飘游池入姓氏李张古胡吴赵钱孙周王官清晴眼睛保护害做事情请让病相遇喜欢怕攻言互令动万纯净阴雷电阵冰冻夹吃忘井村叫毛主席乡亲战士面想告诉就京城安广非常壮观宽太阳道送忙尝香甜温暖该颜因匹册支铅忽喊身块捉急直河也行这只窝孤单种都邻居招呼觉乐怎独跳绳讲得羽球戏排篮连运静夜思床光疑举望低敌胆敢往外勇乱偏散原像微再端粽节总米样豆肉带了传念虹座浇如提洒挑兴镜拿照千裙眉鼻嘴脖臂肚腿脚蜻蜓迷藏造蚂蚁食粮蜘蛛网圆严寒酷暑凉晨细朝霞夕柳杨操场拔拍跑热闹锻炼体之初性善习教贵专幼玉器知义饭能饱鞭炮首踪迹浮萍泉流爱柔荷露角珠摇躺晶停机展透翅膀唱朵";
+
+const CONFUSIONS = {
+    '清':['晴','请','情','睛','青','精'],'晴':['清','请','情','睛','青','阴'],'情':['清','晴','请','睛','青'],'请':['清','晴','情','睛','青'],
+    '睛':['清','晴','情','请','青','眼'],'青':['清','晴','情','请','睛'],'明':['朋','名','阴'],'名':['明','各','字'],
+    '雨':['语','雪','两'],'语':['雨','言','话'],'天':['大','夫','无','关'],'大':['天','太','犬','木'],
+    '白':['百','自','日'],'自':['白','目','百'],'言':['音','信'],'双':['对','欢','单'],'过':['这','还','进'],
+    '水':['冰','木','小'],'木':['水','本','禾','大'],'土':['士','干','工'],'士':['土','干','十'],'干':['千','土','十'],
+    '千':['干','十','于'],'十':['千','土','干'],'己':['已','巳','巴'],'已':['己','巳','巴'],'喝':['渴','唱'],
+    '渴':['喝','歇'],'处':['外','休'],'外':['处','休'],'入':['人','八'],'人':['入','八','大'],'八':['入','人'],
+    '日':['目','白','曰'],'目':['日','白','自'],'右':['石','左'],'石':['右','百'],'左':['在','右'],'在':['左','存'],
+    '鸟':['乌','马'],'乌':['鸟','马'],'早':['草','旱'],'草':['早','苹'],'学':['字','觉','生'],'生':['升','声','牛'],
+    '花':['草','化'],'牛':['午','生'],'午':['牛','干'],'毛':['手','无'],'手':['毛','乎'],'今':['令','金'],
+    '令':['今','冷'],'很':['得','行'],'得':['很','行'],'地':['他','池'],'他':['地','池'],'池':['地','他'],
+    '玩':['完','远'],'完':['玩','元'],'中':['种','钟','忠'],'种':['中','钟'],'相':['香','乡','想'],'香':['相','乡']
+};
+
+const D = {
+    '日':['☀️','太阳','日光'],'月':['🌙','月亮','🌕'],'山':['⛰️','高山','山顶'],
+    '水':['💧','喝水','流水'],'火':['🔥','大火','火苗'],'土':['🪴','泥土','土地'],
+    '雨':['🌧️','下雨','雨水'],'雪':['❄️','下雪','雪花'],'风':['🌬️','大风','风吹'],
+    '草':['🌿','小草','草地'],'花':['🌸','红花','花朵'],'树':['🌳','大树','树木'],
+    '猫':['🐱','小猫','猫咪'],'狗':['🐶','小狗','狗狗'],'猪':['🐷','小猪','猪猪'],
+    '我':['🙋','我们','自己'],'你':['👉','你好','你们'],'他':['🙎','他们','他的'],
+    '春':['🌸','春天','春风'],'夏':['☀️🏊','夏天','夏日'],'秋':['🍁','秋天','秋风'],
+    '冬':['⛄','冬天','冬雪'],'红':['🔴','红色','红花'],'黄':['🟡','黄色','黄叶'],
+    '大':['🐘','大小','放大'],'小':['🐭','小小','缩小'],'多':['📦📦','很多','多少'],
+    '少':['🤏','少少','多少'],'乐':['😄','快乐','音乐'],'爱':['❤️','爱好','可爱'],
+    '清明':['🌿','清明节','踏青'],'学生':['🎒','小学生','上学'],'花生':['🥜','吃花生','生花'],
+    '请安':['🙇','问候','请安'],'名言':['📖','格言','句子'],'多么':['✨','多么好','感叹'],
+    '双人':['👫','两个人','双排'],'古老':['🕰️','古老','历史']
+};
+
+function getSafePinyin(c){
+    try{ if(typeof pinyinPro!=='undefined'&&pinyinPro.pinyin) return pinyinPro.pinyin(c,{toneType:'symbol'}); }catch(e){}
+    return "";
+}
+
+function isPureEmoji(str) {
+    if (!str) return false;
+    const emojiRe = /^\p{Emoji}/u;
+    return emojiRe.test(str) && str.replace(/[\p{Emoji}\uFE0F\u200D\s]/gu, '').length === 0;
+}
+
+function getContentForChar(c){ 
+    if(D[c]) return D[c];
+    if(c.length > 1) return [c, ...c.split('')];
+    return [c + '字', '含' + c + '词', '学' + c + '字']; 
+}
+
+function renderDisplayItem(str, el, isLarge=true){
+    el.innerHTML='';
+    el.className='slide-in-right select-none flex items-center justify-center w-full h-full transition-transform rounded-xl';
+    
+    const isEmoji = isPureEmoji(str);
+    const hintEl = document.getElementById('learn-image-hint');
+
+    if(isEmoji){
+        el.style.fontSize = isLarge ? 'clamp(4rem,16vh,7rem)' : 'clamp(3rem,12vh,5rem)';
+        el.innerText = str;
+        el.onclick = null;
+        el.classList.remove('cursor-pointer', 'active:scale-95', 'hover:bg-blue-50/50');
+        if(hintEl) hintEl.classList.add('hidden');
+    } else {
+        let fSize = 'clamp(3rem,11vh,5rem)';
+        if(str.length >= 4) fSize = 'clamp(1.5rem,6vh,3rem)';
+        else if(str.length >= 2) fSize = 'clamp(2rem,8vh,4rem)';
+        
+        el.style.fontSize = fSize;
+        el.innerText = str;
+        el.classList.add('cursor-pointer', 'active:scale-95', 'hover:bg-blue-50/50', 'break-words-center');
+        el.onclick = (e) => {
+            e.stopPropagation();
+            app.playWordAudio(str);
+        };
+        if(hintEl) hintEl.classList.remove('hidden');
+    }
+}
+
+const app={
+    allCharsInSession:[], charsToLearn:[], failedChars:[], sessionMistakes:new Set(),
+    currentIndex:0, currentStep:0, score:0,
+    quizSequence:[], currentQuizMode:'pinyin2word',
+    bgmInitialized:false, isReviewMode:false, hasCurrentQuestionMistake:false,
+    
+    // 艾宾浩斯核心状态
+    isEbbinghausMode: false,
+    ebbinghausQueue: [],
+
+    init(){
+        document.getElementById('btn-home-back').addEventListener('click',()=>this.goHome());
+        this.initLessons();
+        const startAudio=()=>{
+            if(!this.bgmInitialized){
+                this.bgmInitialized=true; sound.init(); sound.playBGM();
+                const b=document.getElementById('btn-bgm'); b.innerText='🎵'; b.classList.remove('opacity-50');
+                document.removeEventListener('click',startAudio); document.removeEventListener('touchstart',startAudio);
+            }
+        };
+        document.addEventListener('click',startAudio); document.addEventListener('touchstart',startAudio);
+        ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange']
+            .forEach(e=>document.addEventListener(e,()=>this.updateFullscreenBtn()));
+    },
+
+    toggleFullscreen(){
+        const d=document,el=d.documentElement;
+        const req=el.requestFullscreen||el.mozRequestFullScreen||el.webkitRequestFullScreen||el.msRequestFullscreen;
+        const ex=d.exitFullscreen||d.mozCancelFullScreen||d.webkitExitFullscreen||d.msExitFullscreen;
+        (!d.fullscreenElement&&!d.mozFullScreenElement&&!d.webkitFullscreenElement&&!d.msFullscreenElement)
+            ? req&&req.call(el) : ex&&ex.call(d);
+    },
+
+    updateFullscreenBtn(){
+        const btn=document.getElementById('btn-fullscreen');
+        const isFull=document.fullscreenElement||document.mozFullScreenElement||document.webkitFullscreenElement||document.msFullscreenElement;
+        btn.innerText=isFull?'↙️':'⛶';
+        const c=document.getElementById('app-container'),b=document.getElementById('app-body');
+        if(isFull){ c.classList.remove('sm:rounded-3xl'); c.classList.add('rounded-none'); b.classList.remove('sm:p-4'); b.classList.add('p-0'); }
+        else{ c.classList.add('sm:rounded-3xl'); c.classList.remove('rounded-none'); b.classList.add('sm:p-4'); b.classList.remove('p-0'); }
+    },
+
+    toggleBGM(){
+        this.bgmInitialized=true;
+        const btn=document.getElementById('btn-bgm');
+        if(!sound.isPlaying){ sound.playBGM(); btn.innerText='🎵'; btn.classList.remove('opacity-50'); }
+        else{ sound.stopBGM(); btn.innerText='🔇'; btn.classList.add('opacity-50'); }
+    },
+
+    initLessons(){
+        const unique=[...new Set(allCharsStr.match(/[\u4e00-\u9fa5]/g))];
+        const val = document.getElementById('chars-per-level').value;
+        let gs = val === 'all' ? unique.length : (parseInt(val) || 5);
+        if(gs < 5 && val !== 'all') gs = 5;
+        
+        const sel=document.getElementById('lesson-select'); sel.innerHTML='';
+        
+        let optC=document.createElement('option');
+        optC.value="清明 学生 花生 请安 多么 双人 古老 名言 一清二白 雨过天晴 自言自语";
+        optC.innerText="🌟 自定义词汇与成语挑战";
+        sel.appendChild(optC);
+
+        if (val === 'all') {
+            const chars=unique.join(' ');
+            const opt=document.createElement('option');
+            opt.value=chars; opt.innerText=`基础字全部（共${unique.length}字）`;
+            sel.appendChild(opt);
+        } else {
+            for(let i=0;i<unique.length;i+=gs){
+                const chars=unique.slice(i,i+gs).join(' '); 
+                const opt=document.createElement('option');
+                opt.value=chars; opt.innerText=`基础字第${Math.floor(i/gs)+1}关（第${i+1}~${Math.min(i+gs,unique.length)}字）`;
+                sel.appendChild(opt);
+            }
+        }
+        this.changeLesson();
+    },
+
+    changeLesson(){ document.getElementById('input-chars').value=document.getElementById('lesson-select').value; },
+
+    parseInput(){
+        let text = document.getElementById('input-chars').value.trim();
+        if(!text){ this.showModal('提示', '请至少输入一点要学习的内容哦！', '⚠️', '好的'); return false; }
+        
+        let isWordMode = /[\s,，、\n]/.test(text);
+        let arr = [];
+        if (isWordMode) {
+            arr = text.split(/[\s,，、\n]+/).filter(w => /^[\u4e00-\u9fa5]+$/.test(w));
+        } else {
+            arr = text.match(/[\u4e00-\u9fa5]/g) || [];
+        }
+        
+        if(arr.length===0){ this.showModal('提示', '没有检测到有效的中文汉字或词语！', '⚠️', '好的'); return false; }
+        this.allCharsInSession=[...new Set(arr)]; return true;
+    },
+
+    switchView(id){
+        // 将 view-dashboard 加入隐藏列表
+        ['view-home','view-learn','view-quiz','view-dashboard','modal-msg-box'].forEach(v=>document.getElementById(v).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById('btn-home-back').classList.toggle('hidden',id==='view-home');
+    },
+
+    goHome(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); this.switchView('view-home'); },
+    
+    // 新增：渲染记忆词库面板
+    async showDashboard() {
+        this.switchView('view-dashboard');
+        const listEl = document.getElementById('dashboard-list');
+        const userName = document.getElementById('user-profile').value;
+        const selectEl = document.getElementById('user-profile');
+        const userText = selectEl.options[selectEl.selectedIndex].text;
+        
+        document.getElementById('dashboard-user-name').innerText = userText;
+        listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端调取记忆数据...</div>';
+
+        try {
+            const data = await dbGetAllMistakes();
+            if (data.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-gray-400 mt-10">📭 当前账户还没有错题或记忆任务哦！<br>快去闯关学习吧~</div>';
+                return;
+            }
+
+            let html = '';
+            const now = Date.now();
+            data.forEach(item => {
+                const isDue = item.nextReviewTime <= now;
+                const dateObj = new Date(item.nextReviewTime);
+                const dateStr = dateObj.toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                
+                // 进度条计算 (最高8级)
+                const maxLevel = EBBINGHAUS_INTERVALS.length - 1; 
+                const progressPct = Math.min(100, Math.round((item.level / maxLevel) * 100));
+
+                html += `
+                    <div class="bg-white p-3 sm:p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border-l-4 ${isDue ? 'border-red-400' : 'border-purple-400'} flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3 sm:gap-4">
+                                <span class="text-2xl sm:text-3xl font-bold text-gray-800">${item.char}</span>
+                                <div>
+                                    <div class="text-[11px] sm:text-xs text-gray-500 mb-0.5">记忆深度: <span class="font-bold text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">Lv.${item.level}</span></div>
+                                    <div class="text-xs sm:text-sm font-bold ${isDue ? 'text-red-500' : 'text-gray-600'}">
+                                        ${isDue ? '⚠️ 已到期，需立即复习' : '🕒 下次: ' + dateStr}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                            <div class="bg-purple-500 h-1.5 rounded-full transition-all" style="width: ${progressPct}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+
+        } catch(e) {
+            listEl.innerHTML = '<div class="text-center text-red-500 mt-10 font-bold">❌ 加载失败，请检查网络或数据库连接</div>';
+        }
+    },
+
+    // ----------------------------------------------------
+    // 主流入口：集成艾宾浩斯复习检测
+    // ----------------------------------------------------
+    async startFlow(){ 
+        if(!this.parseInput()) return; 
+        
+        this.score=0; 
+        this.isReviewMode=false; 
+        this.isEbbinghausMode=false;
+        this.sessionMistakes.clear();
+        this.currentQuizMode=document.getElementById('quiz-mode-select').value;
+        
+        const submitBtn = document.getElementById('btn-start-flow');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = `<span>⏳ 正在查询记忆复习曲线...</span>`;
+        submitBtn.disabled = true;
+
+        try {
+            // 抓取当前用户已到期的需要复习的错题
+            const dueReviews = await dbGetDueReviews();
+            
+            if (dueReviews.length > 0) {
+                // 进入艾宾浩斯优先复习流
+                this.isEbbinghausMode = true;
+                this.ebbinghausQueue = dueReviews.map(r => r.char);
+                const userName = document.getElementById('user-profile').value;
+                
+                this.showModal(
+                    '📈 艾宾浩斯智能复习', 
+                    `系统检测到 <b>${userName}</b> 有 <b class="text-purple-500 text-2xl">${this.ebbinghausQueue.length}</b> 个字/词已经到了遗忘临界点！<br>在学习新内容前，我们先把它复习一遍吧！`, 
+                    '🧠', 
+                    '开始复习', 
+                    () => {
+                        this.charsToLearn = [...this.ebbinghausQueue];
+                        this.startQuizPhase(); // 艾宾浩斯模式默认只测验
+                    }
+                );
+            } else {
+                // 没有复习任务，直接进入常规新课
+                this.startNormalFlow();
+            }
+        } catch(e) {
+            console.error("查询数据库失败", e);
+            this.startNormalFlow(); // 降级处理，不阻塞学习
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    },
+
+    // 常规学习流
+    startNormalFlow() {
+        if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
+            this.charsToLearn = [...this.allCharsInSession];
+            this.startQuizPhase();
+        } else {
+            this.startLearningPhase(this.allCharsInSession); 
+        }
+    },
+
+    startLearningPhase(arr){
+        this.charsToLearn=arr; this.currentIndex=0;
+        this.switchView('view-learn'); this.renderLearnCard();
+    },
+
+    renderLearnCard(){
+        const c=this.charsToLearn[this.currentIndex];
+        this.currentStep=0;
+        
+        const t=document.getElementById('learn-title');
+        const progressText = ` (${this.currentIndex+1}/${this.charsToLearn.length})`;
+        if(this.isReviewMode){ 
+            t.innerText=`复习没记住的词/字` + progressText; 
+            t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-pink-500'; 
+        } else { 
+            t.innerText=`正在学习新内容` + progressText; 
+            t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600'; 
+        }
+
+        const charLen = c.length;
+        const rubyParent = document.getElementById('learn-char').parentElement;
+        const rtEl = document.getElementById('learn-pinyin');
+        
+        if(charLen >= 4) {
+            rubyParent.style.fontSize = 'clamp(1.5rem, 5vh, 2.5rem)';
+            rtEl.style.fontSize = 'clamp(0.8rem, 2vh, 1rem)';
+        } else if (charLen >= 2) {
+            rubyParent.style.fontSize = 'clamp(2rem, 7vh, 3.5rem)';
+            rtEl.style.fontSize = 'clamp(1rem, 2.5vh, 1.5rem)';
+        } else {
+            rubyParent.style.fontSize = 'clamp(3rem, 12vh, 5rem)';
+            rtEl.style.fontSize = 'clamp(1.2rem, 3.5vh, 2rem)';
+        }
+
+        document.getElementById('learn-char').innerText=c;
+        document.getElementById('learn-pinyin').innerText=getSafePinyin(c);
+        
+        this.updateLearnImage(c); this.updateLearnButtonText();
+        document.getElementById('learn-progress').style.width=`${((this.currentIndex+1)/this.charsToLearn.length)*100}%`;
+        
+        const card=document.getElementById('view-learn').querySelector('.bg-white');
+        card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
+        setTimeout(()=>this.playAudio(),100);
+    },
+
+    updateLearnImage(c){
+        const contents=getContentForChar(c);
+        const el=document.getElementById('learn-image');
+        el.classList.remove('slide-in-right'); void el.offsetWidth;
+        const disp=contents[this.currentStep%contents.length];
+        renderDisplayItem(disp, el, true);
+        el.classList.add('slide-in-right');
+    },
+
+    updateLearnButtonText(){
+        const c=this.charsToLearn[this.currentIndex];
+        const contents=getContentForChar(c);
+        const btn=document.getElementById('btn-learn-next');
+        if(this.currentStep<contents.length-1){
+            btn.innerText=`下一个拆解演示（${this.currentStep+1}/${contents.length}）`;
+            btn.className='w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0';
+        } else {
+            btn.innerText='记住了，下一个 ➡️';
+            btn.className='w-full bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#2563eb] active:translate-y-[4px] active:shadow-none shrink-0';
+        }
+    },
+
+    handleLearnNext(){
+        const c=this.charsToLearn[this.currentIndex];
+        const contents=getContentForChar(c);
+        if(this.currentStep<contents.length-1){ this.currentStep++; this.updateLearnImage(c); this.updateLearnButtonText(); this.playAudio(); }
+        else{ this.nextChar(); }
+    },
+
+    nextChar(){ if(this.currentIndex<this.charsToLearn.length-1){ this.currentIndex++; this.renderLearnCard(); } else{ this.startQuizPhase(); } },
+
+    startQuizPhase(){
+        this.failedChars=[]; this.currentIndex=0;
+        this.quizSequence=[...this.charsToLearn].sort(()=>Math.random()-0.5);
+        this.currentQuizMode=document.getElementById('quiz-mode-select').value;
+        this.switchView('view-quiz');
+        
+        const promptEl = document.getElementById('quiz-prompt-text');
+        const badgeEl = document.getElementById('ebbinghaus-badge');
+        
+        if (this.isEbbinghausMode) badgeEl.classList.remove('hidden');
+        else badgeEl.classList.add('hidden');
+
+        if(this.currentQuizMode === 'pinyin2word') promptEl.innerText = '拼音对应的是哪个字/词？';
+        else if(this.currentQuizMode === 'pinyin') promptEl.innerText = '它的正确拼音是哪个？';
+        else promptEl.innerText = '哪一个是它？';
+        
+        this.renderQuizQuestion();
+    },
+
+    renderQuizQuestion(){
+        if(this.currentIndex>=this.quizSequence.length){ this.checkQuizResult(); return; }
+        this.hasCurrentQuestionMistake=false;
+        
+        const target=this.quizSequence[this.currentIndex];
+        const quizCharEl = document.getElementById('quiz-char');
+        document.getElementById('quiz-score').innerText=this.score;
+        document.getElementById('quiz-progress-text').innerText=`${this.currentIndex+1}/${this.quizSequence.length}`;
+
+        let promptText = target;
+        let promptSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
+        
+        if (this.currentQuizMode === 'pinyin2word') {
+            promptText = getSafePinyin(target);
+            promptSize = promptText.length > 15 ? 'clamp(1rem,3vh,1.5rem)' : (promptText.length > 8 ? 'clamp(1.5rem,4vh,2rem)' : 'clamp(2rem,6vh,3rem)');
+        }
+        
+        quizCharEl.innerText = promptText;
+        quizCharEl.style.fontSize = promptSize;
+
+        let targetDisplay;
+        if (this.currentQuizMode === 'pinyin') {
+            targetDisplay = getSafePinyin(target);
+        } else if (this.currentQuizMode === 'image') {
+            const tc = getContentForChar(target);
+            targetDisplay = tc[Math.floor(Math.random() * tc.length)];
+        } else {
+            targetDisplay = target;
+        }
+
+        let opts = [{ display: targetDisplay, originalText: target, isTarget: true }];
+        let usedTexts = new Set([targetDisplay]);
+
+        let confusableWords = new Set();
+        const chars = target.split('');
+        
+        for (let i = 0; i < chars.length; i++) {
+            const c = chars[i];
+            if (CONFUSIONS[c]) {
+                CONFUSIONS[c].forEach(alt => {
+                    let newWord = [...chars];
+                    newWord[i] = alt;
+                    confusableWords.add(newWord.join(''));
+                });
+            }
+        }
+        
+        let attempts = 0;
+        while (confusableWords.size < 15 && attempts < 50) {
+            let newWord = [...chars];
+            let replaceIdx = Math.floor(Math.random() * chars.length);
+            let randomChar = allCharsStr[Math.floor(Math.random() * allCharsStr.length)];
+            newWord[replaceIdx] = randomChar;
+            confusableWords.add(newWord.join(''));
+            attempts++;
+        }
+
+        let basePool = [...new Set([...this.allCharsInSession, ...Object.keys(D)])].filter(c => c !== target);
+        let sameLenPool = basePool.filter(c => c.length === target.length);
+        let combinedWordPool = [...confusableWords, ...sameLenPool, ...basePool];
+        
+        for (const word of combinedWordPool) {
+            if (opts.length >= 4) break;
+            
+            let distDisplay;
+            if (this.currentQuizMode === 'pinyin') {
+                distDisplay = getSafePinyin(word); 
+                if(distDisplay === getSafePinyin(target)) continue; 
+            } else if (this.currentQuizMode === 'image') {
+                const cs = getContentForChar(word);
+                distDisplay = isPureEmoji(cs[0]) ? cs[0] : word;
+            } else {
+                distDisplay = word;
+            }
+
+            if (distDisplay && !usedTexts.has(distDisplay)) {
+                usedTexts.add(distDisplay);
+                opts.push({ display: distDisplay, originalText: word });
+            }
+        }
+
+        opts = opts.sort(() => Math.random() - 0.5);
+
+        const container=document.getElementById('quiz-options'); container.innerHTML='';
+        opts.forEach(opt=>{
+            const btn=document.createElement('button');
+            btn.className='bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl w-full h-full flex items-center justify-center shadow-sm hover:shadow-md hover:border-blue-300 transition-all active:scale-95 focus:outline-none overflow-hidden font-bold text-gray-700 break-words-center';
+            
+            if(!isPureEmoji(opt.display)){
+                btn.innerText=opt.display; 
+                if(this.currentQuizMode === 'pinyin') btn.classList.add('font-sans','tracking-wider');
+                
+                let len = opt.display.length;
+                if(len > 15) btn.style.fontSize = 'clamp(0.8rem, 2.5vh, 1.2rem)';
+                else if(len > 8) btn.style.fontSize = 'clamp(1rem, 3vh, 1.5rem)';
+                else if(len > 4) btn.style.fontSize = 'clamp(1.2rem, 4vh, 2rem)';
+                else btn.style.fontSize = 'clamp(1.5rem, 5vh, 2.5rem)';
+
+            } else {
+                btn.innerText=opt.display; 
+                btn.style.fontSize='clamp(3rem,11vh,5rem)'; 
+            }
+            
+            btn.onclick=()=>this.handleQuizAnswer(opt.isTarget, btn, target, opt.originalText);
+            container.appendChild(btn);
+        });
+
+        this.playAudio();
+        const box=quizCharEl.parentElement;
+        box.classList.remove('bounce-in'); void box.offsetWidth; box.classList.add('bounce-in');
+    },
+
+    playWordAudio(text) {
+        if (!text) return false;
+        if (!isPureEmoji(text) && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'zh-CN';
+            u.rate = 0.8;
+            window.speechSynthesis.speak(u);
+            return true;
+        }
+        return false;
+    },
+
+    // ----------------------------------------------------
+    // 处理答题与数据库交互 (核心联动)
+    // ----------------------------------------------------
+    handleQuizAnswer(correct, btn, targetChar, originalText){
+        const isSpoken = this.playWordAudio(originalText);
+
+        if(correct){
+            if(!this.hasCurrentQuestionMistake) {
+                this.score += 10;
+                // 如果是艾宾浩斯测验且第一次答对，提升遗忘层级
+                if (this.isEbbinghausMode && !this.isReviewMode) {
+                    dbUpdateReview(targetChar, true);
+                }
+            }
+            
+            btn.classList.add('bg-green-100','border-green-500');
+            confetti({particleCount:60,spread:65,origin:{y:0.8},colors:['#22c55e','#ec4899','#3b82f6','#eab308']});
+            document.getElementById('quiz-options').querySelectorAll('button').forEach(b=>b.disabled=true);
+            setTimeout(()=>{ this.currentIndex++; this.renderQuizQuestion(); },900);
+        } else {
+            btn.classList.add('shake','bg-red-50','border-red-400');
+            
+            if(!this.hasCurrentQuestionMistake){ 
+                this.hasCurrentQuestionMistake = true; 
+                if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); 
+                this.sessionMistakes.add(targetChar);
+                
+                // 如果是正常的测验且第一次答错，记录进错题本
+                if (!this.isEbbinghausMode && !this.isReviewMode) {
+                    dbRecordMistake(targetChar);
+                } 
+                // 如果是艾宾浩斯测验且第一次答错，降级曲线
+                else if (this.isEbbinghausMode && !this.isReviewMode) {
+                    dbUpdateReview(targetChar, false);
+                }
+            }
+            setTimeout(()=>btn.classList.remove('shake','bg-red-50','border-red-400'),400);
+            
+            if(!isSpoken && 'speechSynthesis' in window){ 
+                const u=new SpeechSynthesisUtterance('再想想哦'); 
+                u.lang='zh-CN'; u.rate=1.2; 
+                window.speechSynthesis.speak(u); 
+            }
+        }
+    },
+
+    checkQuizResult(){
+        if(this.failedChars.length > 0){
+            // 有错误项，强制进入一轮错题闪回重温
+            this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！`,'⚠️','好的，去复习',()=>{ 
+                this.isReviewMode = true; 
+                if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
+                    this.charsToLearn = [...this.failedChars];
+                    this.startQuizPhase();
+                } else {
+                    this.startLearningPhase([...this.failedChars]); 
+                }
+            });
+        } else {
+            // 当前阶段无错误
+            if (this.isEbbinghausMode) {
+                // 艾宾浩斯复习流完成 -> 切换回常规流
+                this.isEbbinghausMode = false;
+                this.isReviewMode = false;
+                this.showModal(
+                    '🌟 记忆复习完成！',
+                    '温故而知新，非常棒！<br>马上开始我们今天的新内容挑战吧！',
+                    '🏆',
+                    '开始新课',
+                    () => { this.startNormalFlow(); }
+                );
+            } else {
+                // 常规学习流彻底完成
+                this.sendReport();
+                this.showModal('太棒了！',`所有的内容都掌握啦！<br>本次总分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！<br><span class="text-sm text-gray-400 mt-2 block">📧 学习报告已发送至家长邮箱</span>`,'🎉','返回首页',()=>this.goHome());
+                const end=Date.now()+3000;
+                (function f(){ confetti({particleCount:5,angle:60,spread:55,origin:{x:0}}); confetti({particleCount:5,angle:120,spread:55,origin:{x:1}}); if(Date.now()<end) requestAnimationFrame(f); })();
+            }
+        }
+    },
+
+    sendReport(){
+        const email = "479321347@qq.com";
+        const modeNames = { 'pinyin2word': '看拼音找字/词', 'pinyin': '看字找拼音', 'image': '看字找图/词' };
+        const modeText = modeNames[this.currentQuizMode] || this.currentQuizMode;
+        const wordsLearned = this.allCharsInSession.join(', ');
+        const mistakes = Array.from(this.sessionMistakes).join(', ') || '无（全对，太棒了！）';
+        const userName = document.getElementById('user-profile').value;
+        
+        const data = {
+            _subject: `📝 [${userName}] 的识字小达人报告 - ${new Date().toLocaleDateString()}`,
+            "学习者": userName,
+            "测试模式": modeText,
+            "本次学习内容": wordsLearned,
+            "遇到困难的字词": mistakes,
+            "最终得分": this.score,
+            "完成时间": new Date().toLocaleString(),
+            _template: "table"
+        };
+
+        fetch(`https://formsubmit.co/ajax/${email}`, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(data)
+        }).catch(err => console.error("发送报告失败:", err));
+    },
+
+    playAudio(){
+        let c='';
+        if(!document.getElementById('view-learn').classList.contains('hidden')){
+            c=this.charsToLearn[this.currentIndex];
+        } else if(!document.getElementById('view-quiz').classList.contains('hidden')){
+            c=this.quizSequence[this.currentIndex]; 
+        }
+        
+        if(c&&'speechSynthesis' in window){ 
+            window.speechSynthesis.cancel(); 
+            const u=new SpeechSynthesisUtterance(c); 
+            u.lang='zh-CN'; u.rate=0.8; 
+            window.speechSynthesis.speak(u); 
+        }
+    },
+
+    showModal(title,msgHtml,icon,btnText,cb){
+        document.getElementById('modal-title').innerText=title;
+        document.getElementById('modal-msg').innerHTML=msgHtml;
+        document.getElementById('modal-icon').innerText=icon;
+        const btn=document.getElementById('modal-btn');
+        btn.innerText=btnText;
+        btn.onclick=()=>{ document.getElementById('modal-msg-box').classList.add('hidden'); if(cb) cb(); };
+        document.getElementById('modal-msg-box').classList.remove('hidden');
+    }
+};
+
+// 暴露为全局对象供原生 onclick 事件调用
+window.app = app;
+window.onload=()=>{ try{ app.init(); }catch(e){ console.error(e); } };
+</script>
+</body>
+</html>
