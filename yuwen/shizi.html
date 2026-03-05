@@ -39,7 +39,7 @@
     <!-- 主页 -->
     <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
         
-        <!-- 新增：用户账户选择系统 -->
+        <!-- 用户账户选择系统 -->
         <div class="bg-white p-3 sm:p-4 rounded-2xl border-2 border-green-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <label class="text-base sm:text-lg font-bold text-green-700 flex items-center gap-2">
                 👤 当前学习者：
@@ -82,20 +82,26 @@
         <button id="btn-start-flow" onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl sm:text-2xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-none active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
             <span>🚀 开始闯关</span>
         </button>
-        <!-- 新增：查看记忆词库按钮 -->
+        <!-- 查看记忆词库按钮 -->
         <button onclick="app.showDashboard()" class="bg-purple-500 hover:bg-purple-600 text-white text-lg sm:text-xl font-bold py-3 rounded-2xl shadow-[0_5px_0_#a855f7] active:shadow-none active:translate-y-[5px] transition-all flex items-center justify-center gap-2">
             <span>📊 查看记忆词库与计划</span>
         </button>
     </div>
 
-    <!-- 新增：记忆词库面板 -->
+    <!-- 记忆词库面板 (附带清除功能) -->
     <div id="view-dashboard" class="hidden flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in relative min-h-0">
         <h2 class="text-xl sm:text-2xl font-bold text-center text-purple-600 shrink-0 flex items-center justify-center gap-2">
             <span>🧠</span> 艾宾浩斯记忆库
         </h2>
-        <div class="bg-purple-50 p-3 rounded-xl text-xs sm:text-sm text-purple-700 font-bold text-center shrink-0 border border-purple-100 shadow-sm">
-            当前查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span>
+        
+        <!-- 顶部工具栏 (含清除按钮) -->
+        <div class="bg-purple-50 p-3 rounded-xl text-xs sm:text-sm text-purple-700 font-bold flex justify-between items-center shrink-0 border border-purple-100 shadow-sm">
+            <div>当前查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span></div>
+            <button onclick="app.clearDashboard()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-transform flex items-center gap-1">
+                🗑️ 清空该账户
+            </button>
         </div>
+
         <div id="dashboard-list" class="flex-1 overflow-y-auto space-y-3 pb-4 pr-1">
             <!-- 动态生成列表 -->
         </div>
@@ -146,13 +152,19 @@
     </div>
 </div>
 
+<!-- Toast 悬浮提示 -->
+<div id="toast-msg" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800/90 text-white px-6 py-3 rounded-full shadow-2xl transition-opacity duration-300 opacity-0 pointer-events-none z-50 font-bold text-sm sm:text-base"></div>
+
 <!-- 弹窗 -->
 <div id="modal-msg-box" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center bounce-in shadow-2xl">
         <div id="modal-icon" class="text-[60px] sm:text-[80px] mb-2">🎉</div>
         <h2 id="modal-title" class="text-2xl sm:text-3xl font-bold text-green-500 mb-2">太棒了！</h2>
         <p id="modal-msg" class="text-base sm:text-lg text-gray-600 mb-4"></p>
-        <button id="modal-btn" class="w-full bg-green-500 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#22c55e] active:shadow-none active:translate-y-[5px]">返回首页</button>
+        <div class="flex gap-3 mt-4">
+            <button id="modal-btn-cancel" class="hidden w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#d1d5db] active:shadow-none active:translate-y-[5px] transition-all">取消</button>
+            <button id="modal-btn" class="w-full bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#16a34a] active:shadow-none active:translate-y-[5px] transition-all">返回首页</button>
+        </div>
     </div>
 </div>
 
@@ -209,11 +221,12 @@ try {
 // 数据库操作核心 API
 // --------------------------------------------------------------------
 
-// 新增：获取当前用户所有的词库记录（用于展示面板）
+// 获取当前用户所有的词库记录（用于展示面板）
 async function dbGetAllMistakes() {
-    if (!db || !currentUser) return [];
+    const user = currentUser || auth?.currentUser;
+    if (!db || !user) return [];
     const profile = document.getElementById('user-profile').value;
-    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes');
+    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const all = [];
@@ -229,9 +242,10 @@ async function dbGetAllMistakes() {
 
 // 1. 获取当前用户需要复习的到期单词
 async function dbGetDueReviews() {
-    if (!db || !currentUser) return [];
+    const user = currentUser || auth?.currentUser;
+    if (!db || !user) return [];
     const profile = document.getElementById('user-profile').value;
-    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes');
+    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const due = [];
@@ -251,10 +265,11 @@ async function dbGetDueReviews() {
 
 // 2. 在正常学习中记录新产生的错题
 async function dbRecordMistake(char) {
-    if (!db || !currentUser) return;
+    const user = currentUser || auth?.currentUser;
+    if (!db || !user) return;
     const profile = document.getElementById('user-profile').value;
     const docId = encodeURIComponent(`${profile}_${char}`);
-    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes', docId);
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
 
     try {
         const snap = await getDoc(docRef);
@@ -271,10 +286,11 @@ async function dbRecordMistake(char) {
 
 // 3. 在艾宾浩斯复习模式中，根据回答正确与否更新曲线
 async function dbUpdateReview(char, isCorrect) {
-    if (!db || !currentUser) return;
+    const user = currentUser || auth?.currentUser;
+    if (!db || !user) return;
     const profile = document.getElementById('user-profile').value;
     const docId = encodeURIComponent(`${profile}_${char}`);
-    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mistakes', docId);
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
 
     try {
         const snap = await getDoc(docRef);
@@ -511,11 +527,10 @@ const app={
 
     goHome(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); this.switchView('view-home'); },
     
-    // 新增：渲染记忆词库面板
+    // 渲染记忆词库面板
     async showDashboard() {
         this.switchView('view-dashboard');
         const listEl = document.getElementById('dashboard-list');
-        const userName = document.getElementById('user-profile').value;
         const selectEl = document.getElementById('user-profile');
         const userText = selectEl.options[selectEl.selectedIndex].text;
         
@@ -564,6 +579,43 @@ const app={
         } catch(e) {
             listEl.innerHTML = '<div class="text-center text-red-500 mt-10 font-bold">❌ 加载失败，请检查网络或数据库连接</div>';
         }
+    },
+
+    // ----------------------------------------------------
+    // 清空当前用户的记忆库 (带双重确认)
+    // ----------------------------------------------------
+    clearDashboard() {
+        const userName = document.getElementById('dashboard-user-name').innerText;
+        this.showConfirmModal(
+            '⚠️ 确认清空', 
+            `确定要彻底清空 <b>${userName}</b> 的所有艾宾浩斯记忆数据吗？<br><span class="text-sm text-red-500 mt-2 block">注意：此操作不可恢复！</span>`, 
+            '🗑️', 
+            '确定清空', 
+            '取消', 
+            async () => {
+                const user = currentUser || auth?.currentUser;
+                if (!db || !user) return;
+                
+                const profile = document.getElementById('user-profile').value;
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
+                
+                try {
+                    const snap = await getDocs(colRef);
+                    const deletePromises = [];
+                    snap.forEach(d => {
+                        if (d.data().profile === profile) {
+                            deletePromises.push(deleteDoc(d.ref));
+                        }
+                    });
+                    await Promise.all(deletePromises);
+                    this.showToast(`✅ ${userName} 的记忆库已清空！`);
+                    this.showDashboard(); // 重新加载列表，此时会显示空状态
+                } catch(e) {
+                    console.error("清理失败", e);
+                    this.showToast("❌ 清理失败，请重试！");
+                }
+            }
+        );
     },
 
     // ----------------------------------------------------
@@ -873,9 +925,10 @@ const app={
                 if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); 
                 this.sessionMistakes.add(targetChar);
                 
-                // 如果是正常的测验且第一次答错，记录进错题本
+                // 如果是正常的测验且第一次答错，记录进错题本，并且展示 Toast 反馈
                 if (!this.isEbbinghausMode && !this.isReviewMode) {
                     dbRecordMistake(targetChar);
+                    this.showToast(`📝 已将“${targetChar}”加入艾宾浩斯记忆库！`);
                 } 
                 // 如果是艾宾浩斯测验且第一次答错，降级曲线
                 else if (this.isEbbinghausMode && !this.isReviewMode) {
@@ -894,7 +947,7 @@ const app={
 
     checkQuizResult(){
         if(this.failedChars.length > 0){
-            // 有错误项，强制进入一轮错题闪回重温
+            // 有错误项，强制进入一轮错题闪回重温 (此时的再错不会重复存库)
             this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！`,'⚠️','好的，去复习',()=>{ 
                 this.isReviewMode = true; 
                 if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
@@ -969,13 +1022,50 @@ const app={
         }
     },
 
+    // 悬浮 Toast 提示功能
+    showToast(msg) {
+        const t = document.getElementById('toast-msg');
+        t.innerText = msg;
+        t.classList.remove('opacity-0');
+        setTimeout(() => t.classList.add('opacity-0'), 2500);
+    },
+
+    // 基础单按钮弹窗
     showModal(title,msgHtml,icon,btnText,cb){
         document.getElementById('modal-title').innerText=title;
         document.getElementById('modal-msg').innerHTML=msgHtml;
         document.getElementById('modal-icon').innerText=icon;
+        
         const btn=document.getElementById('modal-btn');
         btn.innerText=btnText;
+        btn.className = 'w-full bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#16a34a] active:shadow-none active:translate-y-[5px] transition-all';
+        
+        document.getElementById('modal-btn-cancel').classList.add('hidden');
         btn.onclick=()=>{ document.getElementById('modal-msg-box').classList.add('hidden'); if(cb) cb(); };
+        document.getElementById('modal-msg-box').classList.remove('hidden');
+    },
+
+    // 双按钮确认弹窗 (用于危险操作如清空)
+    showConfirmModal(title,msgHtml,icon,confirmText,cancelText,onConfirm){
+        document.getElementById('modal-title').innerText=title;
+        document.getElementById('modal-msg').innerHTML=msgHtml;
+        document.getElementById('modal-icon').innerText=icon;
+
+        const btnConfirm=document.getElementById('modal-btn');
+        btnConfirm.innerText=confirmText;
+        btnConfirm.className = 'w-full bg-red-500 hover:bg-red-600 text-white text-lg font-bold py-3 rounded-xl shadow-[0_5px_0_#dc2626] active:shadow-none active:translate-y-[5px] transition-all';
+
+        const btnCancel=document.getElementById('modal-btn-cancel');
+        btnCancel.innerText=cancelText;
+        btnCancel.classList.remove('hidden');
+
+        btnConfirm.onclick=()=>{
+            document.getElementById('modal-msg-box').classList.add('hidden');
+            if(onConfirm) onConfirm();
+        };
+        btnCancel.onclick=()=>{
+            document.getElementById('modal-msg-box').classList.add('hidden');
+        };
         document.getElementById('modal-msg-box').classList.remove('hidden');
     }
 };
