@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 v6.0 (艾宾浩斯云端版)</title>
+    <title>识字小达人 v6.2 (艾宾浩斯云端版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -30,7 +30,7 @@
         <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
         <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
             🌟 识字小达人 🌟
-            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.0</span>
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.2</span>
         </h1>
         <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
         <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
@@ -220,12 +220,17 @@ try {
 // --------------------------------------------------------------------
 // 数据库操作核心 API
 // --------------------------------------------------------------------
+let inMemoryMistakes = []; // 内存保底数据库，确保在预览环境下也能完美测试
 
 // 获取当前用户所有的词库记录（用于展示面板）
 async function dbGetAllMistakes() {
-    const user = currentUser || auth?.currentUser;
-    if (!db || !user) return [];
+    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    
+    if (!db || !user) {
+        return inMemoryMistakes.filter(m => m.profile === profile).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
+    }
+    
     const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
@@ -242,22 +247,24 @@ async function dbGetAllMistakes() {
 
 // 1. 获取当前用户需要复习的到期单词
 async function dbGetDueReviews() {
-    const user = currentUser || auth?.currentUser;
-    if (!db || !user) return [];
+    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    const now = Date.now();
+    
+    if (!db || !user) {
+        return inMemoryMistakes.filter(m => m.profile === profile && m.nextReviewTime <= now).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
+    }
+
     const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
     try {
         const snap = await getDocs(colRef);
         const due = [];
-        const now = Date.now();
         snap.forEach(d => {
             const data = d.data();
-            // 根据配置文件和到期时间筛选
             if (data.profile === profile && data.nextReviewTime <= now) {
                 due.push(data);
             }
         });
-        // 按照到期紧急程度排序（最老的最先复习）
         due.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
         return due;
     } catch(e) { console.error("抓取复习数据失败", e); return []; }
@@ -265,9 +272,21 @@ async function dbGetDueReviews() {
 
 // 2. 在正常学习中记录新产生的错题
 async function dbRecordMistake(char) {
-    const user = currentUser || auth?.currentUser;
-    if (!db || !user) return;
+    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+    const nextTime = Date.now() + EBBINGHAUS_INTERVALS[1]; // 下次复习: 5分钟后
+
+    if (!db || !user) {
+        const existing = inMemoryMistakes.find(m => m.char === char && m.profile === profile);
+        if (existing) {
+            existing.level = 1;
+            existing.nextReviewTime = nextTime;
+        } else {
+            inMemoryMistakes.push({ char, profile, level: 1, nextReviewTime: nextTime });
+        }
+        return;
+    }
+
     const docId = encodeURIComponent(`${profile}_${char}`);
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
 
@@ -275,20 +294,38 @@ async function dbRecordMistake(char) {
         const snap = await getDoc(docRef);
         if (snap.exists()) {
             const data = snap.data();
-            // 如果已存在错题记录，将其等级重置为 1 (5分钟后复习)
-            await setDoc(docRef, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+            await setDoc(docRef, { ...data, level: 1, nextReviewTime: nextTime });
         } else {
-            // 全新错题
-            await setDoc(docRef, { char, profile, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
+            await setDoc(docRef, { char, profile, level: 1, nextReviewTime: nextTime });
         }
     } catch(e) { console.error("记录错题失败", e); }
 }
 
 // 3. 在艾宾浩斯复习模式中，根据回答正确与否更新曲线
 async function dbUpdateReview(char, isCorrect) {
-    const user = currentUser || auth?.currentUser;
-    if (!db || !user) return;
+    const user = auth?.currentUser;
     const profile = document.getElementById('user-profile').value;
+
+    if (!db || !user) {
+        const existingIdx = inMemoryMistakes.findIndex(m => m.char === char && m.profile === profile);
+        if (existingIdx !== -1) {
+            const data = inMemoryMistakes[existingIdx];
+            if (isCorrect) {
+                const nextLevel = data.level + 1;
+                if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
+                    inMemoryMistakes.splice(existingIdx, 1);
+                } else {
+                    data.level = nextLevel;
+                    data.nextReviewTime = Date.now() + EBBINGHAUS_INTERVALS[nextLevel];
+                }
+            } else {
+                data.level = 1;
+                data.nextReviewTime = Date.now() + EBBINGHAUS_INTERVALS[1];
+            }
+        }
+        return;
+    }
+
     const docId = encodeURIComponent(`${profile}_${char}`);
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'mistakes', docId);
 
@@ -297,19 +334,40 @@ async function dbUpdateReview(char, isCorrect) {
         if (snap.exists()) {
             const data = snap.data();
             if (isCorrect) {
-                // 回答正确，等级提升，复习间隔拉长
                 const nextLevel = data.level + 1;
                 if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
-                    await deleteDoc(docRef); // 已彻底掌握，移出错题库！
+                    await deleteDoc(docRef);
                 } else {
                     await setDoc(docRef, { ...data, level: nextLevel, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[nextLevel] });
                 }
             } else {
-                // 回答错误，遗忘曲线跌回谷底，重新从级别 1 开始
                 await setDoc(docRef, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
             }
         }
     } catch(e) { console.error("更新复习曲线失败", e); }
+}
+
+// 4. 清理所有数据
+async function dbClearAll() {
+    const user = auth?.currentUser;
+    const profile = document.getElementById('user-profile').value;
+
+    if (!db || !user) {
+        inMemoryMistakes = inMemoryMistakes.filter(m => m.profile !== profile);
+        return;
+    }
+
+    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
+    try {
+        const snap = await getDocs(colRef);
+        const deletePromises = [];
+        snap.forEach(d => {
+            if (d.data().profile === profile) {
+                deletePromises.push(deleteDoc(d.ref));
+            }
+        });
+        await Promise.all(deletePromises);
+    } catch(e) { console.error("清理数据库失败", e); throw e; }
 }
 
 // ====================================================================
@@ -497,6 +555,12 @@ const app={
                 sel.appendChild(opt);
             }
         }
+        
+        // 修复：当选择了具体的每关数量时，默认选中第一关，而不是自定义长词汇
+        if (val !== 'all' && sel.options.length > 1) {
+            sel.selectedIndex = 1;
+        }
+
         this.changeLesson();
     },
 
@@ -593,21 +657,8 @@ const app={
             '确定清空', 
             '取消', 
             async () => {
-                const user = currentUser || auth?.currentUser;
-                if (!db || !user) return;
-                
-                const profile = document.getElementById('user-profile').value;
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'mistakes');
-                
                 try {
-                    const snap = await getDocs(colRef);
-                    const deletePromises = [];
-                    snap.forEach(d => {
-                        if (d.data().profile === profile) {
-                            deletePromises.push(deleteDoc(d.ref));
-                        }
-                    });
-                    await Promise.all(deletePromises);
+                    await dbClearAll();
                     this.showToast(`✅ ${userName} 的记忆库已清空！`);
                     this.showDashboard(); // 重新加载列表，此时会显示空状态
                 } catch(e) {
