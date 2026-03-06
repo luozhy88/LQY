@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>识字小达人 v6.5 (解决刷新丢失Bug)</title>
+    <title>识字小达人 (全端同步版 v8.5)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.4/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -30,7 +29,7 @@
         <button id="btn-home-back" class="hidden absolute left-3 top-2 sm:left-4 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform">🏠</button>
         <h1 class="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2">
             🌟 识字小达人 🌟
-            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v6.5</span>
+            <span class="absolute right-2 top-1 text-[10px] bg-white text-green-500 px-2 py-0.5 rounded-full shadow-sm">v8.5</span>
         </h1>
         <button onclick="app.toggleFullscreen()" id="btn-fullscreen" class="absolute right-12 sm:right-14 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-80">⛶</button>
         <button onclick="app.toggleBGM()" id="btn-bgm" class="absolute right-3 sm:right-4 top-2 sm:top-4 z-20 bg-green-500 rounded-full w-8 h-8 flex items-center justify-center hover:scale-110 transition-transform opacity-50">🔇</button>
@@ -38,8 +37,6 @@
 
     <!-- 主页 -->
     <div id="view-home" class="flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in">
-        
-        <!-- 用户账户系统 -->
         <div class="bg-white p-3 sm:p-4 rounded-2xl border-2 border-green-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <label class="text-base sm:text-lg font-bold text-green-700 flex items-center gap-2">
                 👤 当前学习者：
@@ -82,29 +79,23 @@
         <button id="btn-start-flow" onclick="app.startFlow()" class="bg-blue-500 hover:bg-blue-600 text-white text-xl sm:text-2xl font-bold py-4 rounded-2xl shadow-[0_6px_0_#2563eb] active:shadow-none active:translate-y-[6px] transition-all flex items-center justify-center gap-2">
             <span>🚀 开始闯关</span>
         </button>
-        <!-- 查看记忆词库按钮 -->
         <button onclick="app.showDashboard()" class="bg-purple-500 hover:bg-purple-600 text-white text-lg sm:text-xl font-bold py-3 rounded-2xl shadow-[0_5px_0_#a855f7] active:shadow-none active:translate-y-[5px] transition-all flex items-center justify-center gap-2">
             <span>📊 查看记忆词库与计划</span>
         </button>
     </div>
 
-    <!-- 记忆词库面板 (附带清除功能) -->
+    <!-- 记忆词库面板 -->
     <div id="view-dashboard" class="hidden flex-1 p-4 sm:p-6 flex flex-col gap-4 overflow-y-auto no-scrollbar bounce-in relative min-h-0">
         <h2 class="text-xl sm:text-2xl font-bold text-center text-purple-600 shrink-0 flex items-center justify-center gap-2">
             <span>🧠</span> 艾宾浩斯记忆库
         </h2>
-        
-        <!-- 顶部工具栏 (含清除按钮) -->
         <div class="bg-purple-50 p-3 rounded-xl text-xs sm:text-sm text-purple-700 font-bold flex justify-between items-center shrink-0 border border-purple-100 shadow-sm">
             <div>查询账户：<span id="dashboard-user-name" class="text-purple-900 text-base"></span></div>
             <button onclick="app.clearDashboard()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-transform flex items-center gap-1">
                 🗑️ 清空该账户
             </button>
         </div>
-
-        <div id="dashboard-list" class="flex-1 overflow-y-auto space-y-3 pb-4 pr-1">
-            <!-- 动态生成列表 -->
-        </div>
+        <div id="dashboard-list" class="flex-1 overflow-y-auto space-y-3 pb-4 pr-1"></div>
     </div>
 
     <!-- 学习模式 -->
@@ -114,7 +105,6 @@
             <div id="learn-title" class="absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600">正在学习新内容</div>
         </div>
         <div class="bg-white border-4 border-blue-200 rounded-2xl sm:rounded-3xl w-full flex flex-row items-stretch shadow-lg overflow-hidden flex-1 min-h-0">
-            <!-- 左：汉字+拼音 -->
             <div class="w-[45%] border-r-2 border-dashed border-blue-100 flex flex-col items-center justify-center p-2 sm:p-4 bg-blue-50/40 cursor-pointer group relative" onclick="app.playAudio()">
                 <ruby class="font-bold text-gray-800 leading-none group-hover:text-blue-500 transition-colors break-words-center w-full" style="font-size:clamp(2.5rem,8vh,5rem);">
                     <span id="learn-char">水</span>
@@ -122,14 +112,13 @@
                 </ruby>
                 <div class="absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white px-2 py-0.5 rounded-full shadow-sm border border-blue-100">🔊 点击发音</div>
             </div>
-            <!-- 右：图示区 -->
             <div class="w-[55%] flex flex-col p-2 sm:p-4 bg-white min-h-0 relative">
                 <div class="flex-1 flex items-center justify-center overflow-hidden min-h-0 w-full relative">
                     <div id="learn-image" class="w-full text-center flex items-center justify-center"></div>
                     <div id="learn-image-hint" class="hidden absolute bottom-2 text-[10px] sm:text-xs text-blue-400 font-bold bg-white/90 px-2 py-0.5 rounded-full shadow-sm border border-blue-100 pointer-events-none transition-opacity">🔊 点击读词</div>
                 </div>
                 <button id="btn-learn-next" onclick="app.handleLearnNext()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0">
-                    下一个演示 (1/3)
+                    下一个演示
                 </button>
             </div>
         </div>
@@ -168,227 +157,75 @@
     </div>
 </div>
 
-<script type="module">
+<script>
 // ====================================================================
-// Firebase 数据库与认证接入 (严格遵循安全防线与鉴权规则)
+// 🚨 全栈配置区：连接 Cloudflare 数据库
 // ====================================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-let db = null;
-let auth = null;
-let currentUser = null;
-let appId = 'default-app-id';
+// 这是你在 Cloudflare 设置的独立后端域名
+const API_BASE_URL = "https://api.qyjc.top";
 
-// 核心修复：建立鉴权等待机制，防止刚刷新就读取导致读不到数据
-let authResolve;
-const authReady = new Promise(resolve => { authResolve = resolve; });
+// 内存保底机制：万一断网，使用本地内存保证应用不崩溃
+let inMemoryMistakes = [];
 
-// 艾宾浩斯时间间隔配置 (级别0=新学期不记录时间, 后续级别毫秒数)
-// [ 0级, 5分钟, 30分钟, 12小时, 1天, 2天, 4天, 7天, 15天 ]
-const EBBINGHAUS_INTERVALS = [
-    0, 
-    5 * 60 * 1000,           
-    30 * 60 * 1000,          
-    12 * 60 * 60 * 1000,     
-    24 * 60 * 60 * 1000,     
-    2 * 24 * 60 * 60 * 1000, 
-    4 * 24 * 60 * 60 * 1000, 
-    7 * 24 * 60 * 60 * 1000, 
-    15 * 24 * 60 * 60 * 1000 
-];
-
-try {
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    if (Object.keys(firebaseConfig).length > 0) {
-        const appFB = initializeApp(firebaseConfig);
-        auth = getAuth(appFB);
-        db = getFirestore(appFB);
-        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch(e) {
-                console.error("Firebase登录失败:", e);
-            }
-            authResolve(); // 关键：等完全登录成功后，再放行后续的数据请求
-        };
-        initAuth();
-        onAuthStateChanged(auth, user => { currentUser = user; });
-    } else {
-        authResolve(); // 没有配置时，直接放行使用内存数据
-    }
-} catch (e) {
-    console.warn("Firestore 云端环境未就绪，使用会话级体验", e);
-    authResolve();
-}
-
-// --------------------------------------------------------------------
-// 数据库操作核心 API (已全面支持基于学习者的无缝同步)
-// --------------------------------------------------------------------
-let inMemoryMistakes = []; // 内存保底数据库，确保在预览环境下也能完美测试
-
-// 获取正确的云端路径（强制等待鉴权完成！）
-async function getDbPaths(docId) {
-    await authReady; // 核心修复：如果在刷新瞬间请求数据，在这里必须排队等候！
-    
-    const user = auth?.currentUser || currentUser;
-    const profile = document.getElementById('user-profile').value;
-    const safeProfile = encodeURIComponent(profile);
-    
-    let colRef = null;
-    let docRefFixed = null;
-
-    if (user && db) {
-        colRef = collection(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`);
-        if (docId) docRefFixed = doc(db, 'artifacts', appId, 'public', 'data', `mistakes_${safeProfile}`, docId);
-    }
-    
-    return { colRef, docRefFixed };
-}
-
-// 获取当前用户所有的词库记录（用于展示面板）
 async function dbGetAllMistakes() {
-    const profile = document.getElementById('user-profile').value;
-    const { colRef } = await getDbPaths();
-    
-    if (!db || !colRef) {
-        return inMemoryMistakes.filter(m => m.profile === profile).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
-    }
-    
     try {
-        const snap = await getDocs(colRef);
-        const all = [];
-        snap.forEach(d => {
-            const data = d.data();
-            all.push(data); // 集合已经按 profile 隔离了
-        });
-        all.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
-        return all;
-    } catch(e) { console.error("抓取所有数据失败", e); return []; }
+        const profile = document.getElementById('user-profile').value;
+        const res = await fetch(`${API_BASE_URL}/api/mistakes?profile=` + encodeURIComponent(profile));
+        if(!res.ok) throw new Error("Network response was not ok");
+        return await res.json();
+    } catch(e) {
+        console.error("数据库拉取失败:", e);
+        const profile = document.getElementById('user-profile').value;
+        return inMemoryMistakes.filter(m => m.profile === profile);
+    }
 }
 
-// 1. 获取当前用户需要复习的到期单词
 async function dbGetDueReviews() {
-    const profile = document.getElementById('user-profile').value;
+    const all = await dbGetAllMistakes();
     const now = Date.now();
-    const { colRef } = await getDbPaths();
-    
-    if (!db || !colRef) {
-        return inMemoryMistakes.filter(m => m.profile === profile && m.nextReviewTime <= now).sort((a,b) => a.nextReviewTime - b.nextReviewTime);
-    }
-
-    try {
-        const snap = await getDocs(colRef);
-        const due = [];
-        snap.forEach(d => {
-            const data = d.data();
-            if (data.nextReviewTime <= now) {
-                due.push(data);
-            }
-        });
-        due.sort((a,b) => a.nextReviewTime - b.nextReviewTime);
-        return due;
-    } catch(e) { console.error("抓取复习数据失败", e); return []; }
+    return all.filter(m => m.nextReviewTime <= now);
 }
 
-// 2. 在正常学习中记录新产生的错题
 async function dbRecordMistake(char) {
-    const profile = document.getElementById('user-profile').value;
-    const nextTime = Date.now() + EBBINGHAUS_INTERVALS[1]; // 下次复习: 5分钟后
-    const docId = encodeURIComponent(char); // 集合已按profile隔离，直接用char做ID
-    const { colRef, docRefFixed } = await getDbPaths(docId);
-
-    if (!db || !colRef) {
-        const existing = inMemoryMistakes.find(m => m.char === char && m.profile === profile);
-        if (existing) {
-            existing.level = 1;
-            existing.nextReviewTime = nextTime;
-        } else {
-            inMemoryMistakes.push({ char, profile, level: 1, nextReviewTime: nextTime });
-        }
-        return;
-    }
-
     try {
-        const snap = await getDoc(docRefFixed);
-        if (snap.exists()) {
-            const data = snap.data();
-            await setDoc(docRefFixed, { ...data, level: 1, nextReviewTime: nextTime });
-        } else {
-            await setDoc(docRefFixed, { char, profile, level: 1, nextReviewTime: nextTime });
-        }
-    } catch(e) { console.error("记录错题失败", e); }
-}
-
-// 3. 在艾宾浩斯复习模式中，根据回答正确与否更新曲线
-async function dbUpdateReview(char, isCorrect) {
-    const profile = document.getElementById('user-profile').value;
-    const docId = encodeURIComponent(char);
-    const { colRef, docRefFixed } = await getDbPaths(docId);
-
-    if (!db || !colRef) {
-        const existingIdx = inMemoryMistakes.findIndex(m => m.char === char && m.profile === profile);
-        if (existingIdx !== -1) {
-            const data = inMemoryMistakes[existingIdx];
-            if (isCorrect) {
-                const nextLevel = data.level + 1;
-                if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
-                    inMemoryMistakes.splice(existingIdx, 1);
-                } else {
-                    data.level = nextLevel;
-                    data.nextReviewTime = Date.now() + EBBINGHAUS_INTERVALS[nextLevel];
-                }
-            } else {
-                data.level = 1;
-                data.nextReviewTime = Date.now() + EBBINGHAUS_INTERVALS[1];
-            }
-        }
-        return;
-    }
-
-    try {
-        const snap = await getDoc(docRefFixed);
-        if (snap.exists()) {
-            const data = snap.data();
-            if (isCorrect) {
-                const nextLevel = data.level + 1;
-                if (nextLevel >= EBBINGHAUS_INTERVALS.length) {
-                    await deleteDoc(docRefFixed);
-                } else {
-                    await setDoc(docRefFixed, { ...data, level: nextLevel, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[nextLevel] });
-                }
-            } else {
-                await setDoc(docRefFixed, { ...data, level: 1, nextReviewTime: Date.now() + EBBINGHAUS_INTERVALS[1] });
-            }
-        }
-    } catch(e) { console.error("更新复习曲线失败", e); }
-}
-
-// 4. 清理所有数据
-async function dbClearAll() {
-    const profile = document.getElementById('user-profile').value;
-    const { colRef } = await getDbPaths();
-
-    if (!db || !colRef) {
-        inMemoryMistakes = inMemoryMistakes.filter(m => m.profile !== profile);
-        return;
-    }
-
-    try {
-        const snap = await getDocs(colRef);
-        const deletePromises = [];
-        snap.forEach(d => {
-            deletePromises.push(deleteDoc(d.ref));
+        const profile = document.getElementById('user-profile').value;
+        await fetch(`${API_BASE_URL}/api/update`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ profile: profile, char: char, isCorrect: false, isNew: true })
         });
-        await Promise.all(deletePromises);
-    } catch(e) { console.error("清理数据库失败", e); throw e; }
+    } catch(e) { 
+        console.warn("错题记录失败，转入本地内存:", e);
+        const profile = document.getElementById('user-profile').value;
+        inMemoryMistakes.push({ profile, char, level: 1, nextReviewTime: Date.now() + 300000 });
+    }
+}
+
+async function dbUpdateReview(char, isCorrect) {
+    try {
+        const profile = document.getElementById('user-profile').value;
+        await fetch(`${API_BASE_URL}/api/update`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ profile: profile, char: char, isCorrect: isCorrect, isNew: false })
+        });
+    } catch(e) { console.error("复习状态更新失败:", e); }
+}
+
+async function dbClearAll() {
+    try {
+        const profile = document.getElementById('user-profile').value;
+        await fetch(`${API_BASE_URL}/api/clear`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ profile: profile })
+        });
+        inMemoryMistakes = inMemoryMistakes.filter(m => m.profile !== profile);
+    } catch(e) { 
+        console.error("清空失败:", e);
+        throw e;
+    }
 }
 
 // ====================================================================
@@ -507,7 +344,6 @@ const app={
     quizSequence:[], currentQuizMode:'pinyin2word',
     bgmInitialized:false, isReviewMode:false, hasCurrentQuestionMistake:false,
     
-    // 艾宾浩斯核心状态
     isEbbinghausMode: false,
     ebbinghausQueue: [],
 
@@ -566,18 +402,18 @@ const app={
         if (val === 'all') {
             const chars=unique.join(' ');
             const opt=document.createElement('option');
-            opt.value=chars; opt.innerText=`基础字全部（共${unique.length}字）`;
+            opt.value=chars; opt.innerText = "基础字全部（共" + unique.length + "字）";
             sel.appendChild(opt);
         } else {
             for(let i=0;i<unique.length;i+=gs){
                 const chars=unique.slice(i,i+gs).join(' '); 
                 const opt=document.createElement('option');
-                opt.value=chars; opt.innerText=`基础字第${Math.floor(i/gs)+1}关（第${i+1}~${Math.min(i+gs,unique.length)}字）`;
+                opt.value=chars; 
+                opt.innerText = "基础字第" + (Math.floor(i/gs)+1) + "关（第" + (i+1) + "~" + Math.min(i+gs,unique.length) + "字）";
                 sel.appendChild(opt);
             }
         }
         
-        // 修复：当选择了具体的每关数量时，默认选中第一关，而不是自定义长词汇
         if (val !== 'all' && sel.options.length > 1) {
             sel.selectedIndex = 1;
         }
@@ -604,7 +440,6 @@ const app={
     },
 
     switchView(id){
-        // 将 view-dashboard 加入隐藏列表
         ['view-home','view-learn','view-quiz','view-dashboard','modal-msg-box'].forEach(v=>document.getElementById(v).classList.add('hidden'));
         document.getElementById(id).classList.remove('hidden');
         document.getElementById('btn-home-back').classList.toggle('hidden',id==='view-home');
@@ -612,15 +447,19 @@ const app={
 
     goHome(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); this.switchView('view-home'); },
     
-    // 渲染记忆词库面板
     async showDashboard() {
+        if(API_BASE_URL.includes('your-worker-url')) {
+            this.showModal('需要配置', '请先在代码里把 API_BASE_URL 替换为真实的 Cloudflare 链接才能开启云端记忆库！', '⚠️', '好的');
+            return;
+        }
+
         this.switchView('view-dashboard');
         const listEl = document.getElementById('dashboard-list');
         const selectEl = document.getElementById('user-profile');
         const userText = selectEl.options[selectEl.selectedIndex].text;
         
         document.getElementById('dashboard-user-name').innerHTML = userText;
-        listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端安全连接并调取记忆数据...</div>';
+        listEl.innerHTML = '<div class="text-center text-gray-500 mt-10 font-bold">⏳ 正在从云端调取记忆数据...</div>';
 
         try {
             const data = await dbGetAllMistakes();
@@ -635,66 +474,55 @@ const app={
                 const isDue = item.nextReviewTime <= now;
                 const dateObj = new Date(item.nextReviewTime);
                 const dateStr = dateObj.toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
-                
-                // 进度条计算 (最高8级)
-                const maxLevel = EBBINGHAUS_INTERVALS.length - 1; 
+                const maxLevel = 8; 
                 const progressPct = Math.min(100, Math.round((item.level / maxLevel) * 100));
 
-                html += `
-                    <div class="bg-white p-3 sm:p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border-l-4 ${isDue ? 'border-red-400' : 'border-purple-400'} flex flex-col gap-2">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3 sm:gap-4">
-                                <span class="text-2xl sm:text-3xl font-bold text-gray-800">${item.char}</span>
-                                <div>
-                                    <div class="text-[11px] sm:text-xs text-gray-500 mb-0.5">记忆深度: <span class="font-bold text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">Lv.${item.level}</span></div>
-                                    <div class="text-xs sm:text-sm font-bold ${isDue ? 'text-red-500' : 'text-gray-600'}">
-                                        ${isDue ? '⚠️ 已到期，需立即复习' : '🕒 下次: ' + dateStr}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
-                            <div class="bg-purple-500 h-1.5 rounded-full transition-all" style="width: ${progressPct}%"></div>
-                        </div>
-                    </div>
-                `;
+                html += '<div class="bg-white p-3 sm:p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border-l-4 ' + (isDue ? 'border-red-400' : 'border-purple-400') + ' flex flex-col gap-2">' +
+                        '<div class="flex justify-between items-center">' +
+                            '<div class="flex items-center gap-3 sm:gap-4">' +
+                                '<span class="text-2xl sm:text-3xl font-bold text-gray-800">' + item.char + '</span>' +
+                                '<div>' +
+                                    '<div class="text-[11px] sm:text-xs text-gray-500 mb-0.5">记忆深度: <span class="font-bold text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">Lv.' + item.level + '</span></div>' +
+                                    '<div class="text-xs sm:text-sm font-bold ' + (isDue ? 'text-red-500' : 'text-gray-600') + '">' +
+                                        (isDue ? '⚠️ 已到期，需立即复习' : '🕒 下次: ' + dateStr) +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">' +
+                            '<div class="bg-purple-500 h-1.5 rounded-full transition-all" style="width: ' + progressPct + '%"></div>' +
+                        '</div>' +
+                    '</div>';
             });
             listEl.innerHTML = html;
 
         } catch(e) {
-            listEl.innerHTML = '<div class="text-center text-red-500 mt-10 font-bold">❌ 加载失败，请检查网络或数据库连接</div>';
+            listEl.innerHTML = '<div class="text-center text-red-500 mt-10 font-bold">❌ 加载失败，如果是第一次部署，请在浏览器打开 API 链接加上 /api/setup 初始化数据库！</div>';
         }
     },
 
-    // ----------------------------------------------------
-    // 清空当前用户的记忆库 (带双重确认)
-    // ----------------------------------------------------
     clearDashboard() {
         const selectEl = document.getElementById('user-profile');
         const userName = selectEl.options[selectEl.selectedIndex].text;
         
         this.showConfirmModal(
             '⚠️ 确认清空', 
-            `确定要彻底清空 <b>${userName}</b> 的所有艾宾浩斯记忆数据吗？<br><span class="text-sm text-red-500 mt-2 block">注意：此操作不可恢复！</span>`, 
+            "确定要彻底清空 <b>" + userName + "</b> 的所有艾宾浩斯记忆数据吗？<br><span class='text-sm text-red-500 mt-2 block'>注意：此操作不可恢复！</span>", 
             '🗑️', 
             '确定清空', 
             '取消', 
             async () => {
                 try {
                     await dbClearAll();
-                    this.showToast(`✅ ${userName} 的记忆库已清空！`);
-                    this.showDashboard(); // 重新加载列表，此时会显示空状态
+                    this.showToast("✅ " + userName + " 的记忆库已清空！");
+                    this.showDashboard(); 
                 } catch(e) {
-                    console.error("清理失败", e);
                     this.showToast("❌ 清理失败，请重试！");
                 }
             }
         );
     },
 
-    // ----------------------------------------------------
-    // 主流入口：集成艾宾浩斯复习检测
-    // ----------------------------------------------------
     async startFlow(){ 
         if(!this.parseInput()) return; 
         
@@ -706,15 +534,21 @@ const app={
         
         const submitBtn = document.getElementById('btn-start-flow');
         const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = `<span>⏳ 正在查询记忆复习曲线...</span>`;
+        submitBtn.innerHTML = '<span>⏳ 正在查询记忆复习曲线...</span>';
         submitBtn.disabled = true;
 
+        if(API_BASE_URL.includes('your-worker-url')) {
+            console.warn("未配置 Cloudflare API 链接，跳过艾宾浩斯直接进入本地模式");
+            this.startNormalFlow();
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            return;
+        }
+
         try {
-            // 抓取当前用户已到期的需要复习的错题
             const dueReviews = await dbGetDueReviews();
             
             if (dueReviews.length > 0) {
-                // 进入艾宾浩斯优先复习流
                 this.isEbbinghausMode = true;
                 this.ebbinghausQueue = dueReviews.map(r => r.char);
                 const selectEl = document.getElementById('user-profile');
@@ -722,28 +556,26 @@ const app={
                 
                 this.showModal(
                     '📈 艾宾浩斯智能复习', 
-                    `系统检测到 <b>${userName}</b> 有 <b class="text-purple-500 text-2xl">${this.ebbinghausQueue.length}</b> 个字/词已经到了遗忘临界点！<br>在学习新内容前，我们先把它复习一遍吧！`, 
+                    "系统检测到 <b>" + userName + "</b> 有 <b class='text-purple-500 text-2xl'>" + this.ebbinghausQueue.length + "</b> 个字/词已经到了遗忘临界点！<br>在学习新内容前，我们先把它复习一遍吧！", 
                     '🧠', 
                     '开始复习', 
                     () => {
                         this.charsToLearn = [...this.ebbinghausQueue];
-                        this.startQuizPhase(); // 艾宾浩斯模式默认只测验
+                        this.startQuizPhase(); 
                     }
                 );
             } else {
-                // 没有复习任务，直接进入常规新课
                 this.startNormalFlow();
             }
         } catch(e) {
             console.error("查询数据库失败", e);
-            this.startNormalFlow(); // 降级处理，不阻塞学习
+            this.startNormalFlow(); 
         } finally {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }
     },
 
-    // 常规学习流
     startNormalFlow() {
         if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
             this.charsToLearn = [...this.allCharsInSession];
@@ -763,12 +595,13 @@ const app={
         this.currentStep=0;
         
         const t=document.getElementById('learn-title');
-        const progressText = ` (${this.currentIndex+1}/${this.charsToLearn.length})`;
+        const progressText = " (" + (this.currentIndex+1) + "/" + this.charsToLearn.length + ")";
+        
         if(this.isReviewMode){ 
-            t.innerText=`复习没记住的词/字` + progressText; 
+            t.innerText="复习没记住的词/字" + progressText; 
             t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-pink-500'; 
         } else { 
-            t.innerText=`正在学习新内容` + progressText; 
+            t.innerText="正在学习新内容" + progressText; 
             t.className='absolute -top-5 sm:-top-6 left-0 right-0 text-center text-xs sm:text-sm font-bold text-blue-600'; 
         }
 
@@ -791,7 +624,7 @@ const app={
         document.getElementById('learn-pinyin').innerText=getSafePinyin(c);
         
         this.updateLearnImage(c); this.updateLearnButtonText();
-        document.getElementById('learn-progress').style.width=`${((this.currentIndex+1)/this.charsToLearn.length)*100}%`;
+        document.getElementById('learn-progress').style.width = (((this.currentIndex+1)/this.charsToLearn.length)*100) + "%";
         
         const card=document.getElementById('view-learn').querySelector('.bg-white');
         card.classList.remove('bounce-in'); void card.offsetWidth; card.classList.add('bounce-in');
@@ -812,7 +645,7 @@ const app={
         const contents=getContentForChar(c);
         const btn=document.getElementById('btn-learn-next');
         if(this.currentStep<contents.length-1){
-            btn.innerText=`下一个拆解演示（${this.currentStep+1}/${contents.length}）`;
+            btn.innerText = "下一个拆解演示（" + (this.currentStep+1) + "/" + contents.length + "）";
             btn.className='w-full bg-indigo-500 hover:bg-indigo-600 text-white text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 mt-2 rounded-xl transition-all shadow-[0_4px_0_#4f46e5] active:translate-y-[4px] active:shadow-none shrink-0';
         } else {
             btn.innerText='记住了，下一个 ➡️';
@@ -855,7 +688,7 @@ const app={
         const target=this.quizSequence[this.currentIndex];
         const quizCharEl = document.getElementById('quiz-char');
         document.getElementById('quiz-score').innerText=this.score;
-        document.getElementById('quiz-progress-text').innerText=`${this.currentIndex+1}/${this.quizSequence.length}`;
+        document.getElementById('quiz-progress-text').innerText = (this.currentIndex+1) + "/" + this.quizSequence.length;
 
         let promptText = target;
         let promptSize = target.length > 3 ? 'clamp(1.5rem,5vh,2.5rem)' : 'clamp(2rem,6vh,4rem)';
@@ -912,11 +745,8 @@ const app={
         for (const word of combinedWordPool) {
             if (opts.length >= 4) break;
             
-            // 🚨 重大修复：在“看拼音找字”模式中，如果混淆项和正确答案的发音一模一样（比如清和青），则坚决不能放出来，否则会导致两个正确答案！
             if (this.currentQuizMode === 'pinyin2word') {
-                if (word !== target && getSafePinyin(word) === getSafePinyin(target)) {
-                    continue; // 过滤掉发音完全相同的干扰项
-                }
+                if (word !== target && getSafePinyin(word) === getSafePinyin(target)) continue; 
             }
             
             let distDisplay;
@@ -980,17 +810,13 @@ const app={
         return false;
     },
 
-    // ----------------------------------------------------
-    // 处理答题与数据库交互 (核心联动)
-    // ----------------------------------------------------
     handleQuizAnswer(correct, btn, targetChar, originalText){
         const isSpoken = this.playWordAudio(originalText);
 
         if(correct){
             if(!this.hasCurrentQuestionMistake) {
                 this.score += 10;
-                // 如果是艾宾浩斯测验且第一次答对，提升遗忘层级
-                if (this.isEbbinghausMode && !this.isReviewMode) {
+                if (this.isEbbinghausMode && !this.isReviewMode && !API_BASE_URL.includes('your-worker-url')) {
                     dbUpdateReview(targetChar, true);
                 }
             }
@@ -1007,13 +833,11 @@ const app={
                 if(!this.failedChars.includes(targetChar)) this.failedChars.push(targetChar); 
                 this.sessionMistakes.add(targetChar);
                 
-                // 如果是正常的测验且第一次答错，记录进错题本，并且展示 Toast 反馈
-                if (!this.isEbbinghausMode && !this.isReviewMode) {
+                if (!this.isEbbinghausMode && !this.isReviewMode && !API_BASE_URL.includes('your-worker-url')) {
                     dbRecordMistake(targetChar);
-                    this.showToast(`📝 已将“${targetChar}”加入艾宾浩斯记忆库！`);
+                    this.showToast("📝 已将“" + targetChar + "”加入艾宾浩斯记忆库！");
                 } 
-                // 如果是艾宾浩斯测验且第一次答错，降级曲线
-                else if (this.isEbbinghausMode && !this.isReviewMode) {
+                else if (this.isEbbinghausMode && !this.isReviewMode && !API_BASE_URL.includes('your-worker-url')) {
                     dbUpdateReview(targetChar, false);
                 }
             }
@@ -1029,8 +853,7 @@ const app={
 
     checkQuizResult(){
         if(this.failedChars.length > 0){
-            // 有错误项，强制进入一轮错题闪回重温 (此时的再错不会重复存库)
-            this.showModal('🤔 还要加油哦',`有 <b class="text-pink-500 text-2xl">${this.failedChars.length}</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！`,'⚠️','好的，去复习',()=>{ 
+            this.showModal('🤔 还要加油哦', "有 <b class='text-pink-500 text-2xl'>" + this.failedChars.length + "</b> 个刚才没认出来，<br>我们把它们再复习一遍吧！", '⚠️', '好的，去复习', () => { 
                 this.isReviewMode = true; 
                 if (this.currentQuizMode === 'pinyin2word' || this.currentQuizMode === 'pinyin') {
                     this.charsToLearn = [...this.failedChars];
@@ -1040,9 +863,7 @@ const app={
                 }
             });
         } else {
-            // 当前阶段无错误
             if (this.isEbbinghausMode) {
-                // 艾宾浩斯复习流完成 -> 切换回常规流
                 this.isEbbinghausMode = false;
                 this.isReviewMode = false;
                 this.showModal(
@@ -1053,9 +874,8 @@ const app={
                     () => { this.startNormalFlow(); }
                 );
             } else {
-                // 常规学习流彻底完成
                 this.sendReport();
-                this.showModal('太棒了！',`所有的内容都掌握啦！<br>本次总分：<b class="text-orange-500 text-2xl">${this.score}</b> 分！<br><span class="text-sm text-gray-400 mt-2 block">📧 学习报告已发送至家长邮箱</span>`,'🎉','返回首页',()=>this.goHome());
+                this.showModal('太棒了！', "所有的内容都掌握啦！<br>本次总分：<b class='text-orange-500 text-2xl'>" + this.score + "</b> 分！<br><span class='text-sm text-gray-400 mt-2 block'>📧 学习报告已发送至家长邮箱</span>", '🎉', '返回首页', ()=>this.goHome());
                 const end=Date.now()+3000;
                 (function f(){ confetti({particleCount:5,angle:60,spread:55,origin:{x:0}}); confetti({particleCount:5,angle:120,spread:55,origin:{x:1}}); if(Date.now()<end) requestAnimationFrame(f); })();
             }
@@ -1071,7 +891,7 @@ const app={
         const userName = document.getElementById('user-profile').value;
         
         const data = {
-            _subject: `📝 [${userName}] 的识字小达人报告 - ${new Date().toLocaleDateString()}`,
+            _subject: "📝 [" + userName + "] 的识字小达人报告 - " + new Date().toLocaleDateString(),
             "学习者": userName,
             "测试模式": modeText,
             "本次学习内容": wordsLearned,
@@ -1081,7 +901,7 @@ const app={
             _template: "table"
         };
 
-        fetch(`https://formsubmit.co/ajax/${email}`, {
+        fetch("https://formsubmit.co/ajax/" + email, {
             method: "POST",
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(data)
@@ -1104,7 +924,6 @@ const app={
         }
     },
 
-    // 悬浮 Toast 提示功能
     showToast(msg) {
         const t = document.getElementById('toast-msg');
         t.innerText = msg;
@@ -1112,7 +931,6 @@ const app={
         setTimeout(() => t.classList.add('opacity-0'), 2500);
     },
 
-    // 基础单按钮弹窗
     showModal(title,msgHtml,icon,btnText,cb){
         document.getElementById('modal-title').innerText=title;
         document.getElementById('modal-msg').innerHTML=msgHtml;
@@ -1127,7 +945,6 @@ const app={
         document.getElementById('modal-msg-box').classList.remove('hidden');
     },
 
-    // 双按钮确认弹窗 (用于危险操作如清空)
     showConfirmModal(title,msgHtml,icon,confirmText,cancelText,onConfirm){
         document.getElementById('modal-title').innerText=title;
         document.getElementById('modal-msg').innerHTML=msgHtml;
@@ -1152,7 +969,6 @@ const app={
     }
 };
 
-// 暴露为全局对象供原生 onclick 事件调用
 window.app = app;
 window.onload=()=>{ try{ app.init(); }catch(e){ console.error(e); } };
 </script>
