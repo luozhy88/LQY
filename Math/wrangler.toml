@@ -1,0 +1,10 @@
+
+name = "qymath" # 您的 Worker 名字
+main = "worker.js"             # 您的本地 JS 文件名
+compatibility_date = "2024-04-06"
+
+# 绑定代码中需要的 D1 数据库
+[[d1_databases]]
+binding = "DB"                 # 必须和代码中的 env.DB 一致
+database_name = "qymathdb" 
+database_id = "a3ce9ee1-eb33-481b-ae50-de49a7031638"

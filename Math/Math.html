@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>森林数学大冒险</title>
+    <!-- 引入 Tailwind CSS 库 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用于在浏览器中编译 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入撒花动画库 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+        
+        body { 
+            font-family: 'ZCOOL KuaiLe', 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            background-image: radial-gradient(#bbf7d0 2px, transparent 2px);
+            background-size: 30px 30px;
+            background-color: #f0fdf4;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-8px); }
+        }
+        .shake { animation: shake 0.4s; }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: popIn 0.5s ease-out; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div id="root" class="w-full max-w-4xl"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const levels = [
+            {
+                title: "第一关：数字气球 🎈",
+                subtitle: "热身运动：直接写出答案",
+                questions: [
+                    { q: "5 + 8 = ?", a: 13, options: [12, 13, 14] },
+                    { q: "19 - 7 = ?", a: 12, options: [11, 12, 13] },
+                    { q: "13 - 9 + 8 = ?", a: 12, options: [10, 11, 12] }
+                ]
+            },
+            {
+                title: "第二关：生活小剧场 ⛄",
+                subtitle: "看图解决生活中的问题",
+                questions: [
+                    { q: "⛄ 草地上原来有一些雪人，太阳出来后融化了4个，地上还剩下8个完整的雪人。请问原来一共有几个雪人？", a: 12, options: [4, 12, 16] },
+                    { q: "💧 有12个雪人，过了一会儿化成了几摊水，还剩下9个雪人。请问融化了多少个雪人？", a: 3, options: [3, 9, 21] },
+                    { q: "🧁 蛋糕店里，小敏买了14个小蛋糕，小红买了8个。小敏比小红多买几个？", a: 6, options: [6, 22, 5] },
+                    { q: "📚 图书角有12本故事书，13本绘本。我想算【图书角还剩多少本绘本？】，需要补充下面哪个条件？", a: "借走7本绘本", options: ["借走7本书", "借走7本绘本", "又上架7本"] }
+                ]
+            },
+            {
+                title: "第三关：规律侦探 🔍",
+                subtitle: "仔细观察数字，找出隐藏的秘密！",
+                questions: [
+                    { q: "找规律填数： 8， 7， 6， ❓， 4", a: 5, options: [9, 5, 3] },
+                    { q: "找规律填数： 15， 13， 11， ❓， 7", a: 9, options: [10, 9, 8] },
+                    { q: "找规律填数： 2， 5， 8， ❓， 14", a: 11, options: [10, 11, 12] },
+                    { q: "观察算式找规律：\n 20 - 8 = 12 \n 20 - 7 = 13 \n 20 - 6 = ❓", a: 14, options: [12, 14, 15] }
+                ]
+            },
+            {
+                title: "第四关：填表与逻辑达人 📊",
+                subtitle: "理清线索，解答文字谜题",
+                questions: [
+                    { q: "🏪 商店填表：原有16个苹果，卖出7个，剩下几个？", a: 9, options: [8, 9, 23] },
+                    { q: "🧸 商店填表：原有15个玩具熊，卖出了一些后，剩下10个。请问卖出了几个？", a: 5, options: [5, 10, 25] },
+                    { q: "🔢 猜数游戏：一个两位数，个位和十位上的数都是1，这个数是几？", a: 11, options: [2, 10, 11] },
+                    { q: "⬇️ 刚才猜出的数是11，那么比 11 少 5 的数是几？", a: 6, options: [6, 16, 5] },
+                    { q: "📏 把下面算式按得数比较，哪个算式的得数【最小】？", a: "15 - 9", options: ["11 - 2", "13 - 5", "15 - 9"] }
+                ]
+            }
+        ];
+
+        const App = () => {
+            const [gameState, setGameState] = useState('start'); 
+            const [levelIdx, setLevelIdx] = useState(0);
+            const [qIdx, setQIdx] = useState(0);
+            const [wrongOptions, setWrongOptions] = useState([]);
+            const [showSuccess, setShowSuccess] = useState(false);
+            const [errorLog, setErrorLog] = useState([]);
+
+            const startGame = () => {
+                setGameState('playing');
+                setLevelIdx(0);
+                setQIdx(0);
+                setWrongOptions([]);
+            };
+
+            const handleAnswer = (option) => {
+                const currentQ = levels[levelIdx].questions[qIdx];
+                if (option === currentQ.a) {
+                    setShowSuccess(true);
+                    
+                    confetti({
+                        particleCount: 50,
+                        spread: 60,
+                        origin: { y: 0.6 },
+                        colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+                    });
+
+                    setTimeout(() => {
+                        setShowSuccess(false);
+                        setWrongOptions([]);
+                        
+                        if (qIdx + 1 < levels[levelIdx].questions.length) {
+                            setQIdx(qIdx + 1);
+                        } else if (levelIdx + 1 < levels.length) {
+                            setLevelIdx(levelIdx + 1);
+                            setQIdx(0);
+                        } else {
+                            setGameState('result');
+                            confetti({
+                                particleCount: 200,
+                                spread: 100,
+                                origin: { y: 0.3 }
+                            });
+                        }
+                    }, 1200);
+                } else {
+                    if (!wrongOptions.includes(option)) {
+                        setWrongOptions([...wrongOptions, option]);
+                        
+                        const isAlreadyLogged = errorLog.some(log => log.q === currentQ.q);
+                        if (!isAlreadyLogged) {
+                            setErrorLog([...errorLog, {
+                                levelTitle: levels[levelIdx].title,
+                                q: currentQ.q,
+                                correctA: currentQ.a,
+                                wrongA: option,
+                                timestamp: new Date().getTime()
+                            }]);
+                        }
+                    }
+                }
+            };
+
+            const downloadAward = () => {
+                const certHTML = `
+                <!DOCTYPE html>
+                <html lang="zh">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>数学推理小达人奖状</title>
+                    <style>
+                        @page { size: A4 landscape; margin: 0; }
+                        body { 
+                            margin: 0; 
+                            display: flex; justify-content: center; align-items: center; 
+                            height: 100vh; background-color: #f0fdf4; 
+                            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+                        }
+                        .cert { 
+                            width: 800px; height: 550px; 
+                            border: 20px solid #f59e0b; padding: 40px; 
+                            background: white; border-radius: 30px; 
+                            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                            position: relative;
+                        }
+                        h1 { color: #ea580c; font-size: 60px; margin-top: 30px; }
+                        p.subtitle { font-size: 32px; color: #4b5563; margin-top: 40px; }
+                        p.desc { font-size: 24px; color: #6b7280; margin-top: 20px; line-height: 1.6; }
+                        .star { font-size: 60px; margin-top: 30px; letter-spacing: 10px; }
+                        .date { position: absolute; bottom: 40px; right: 60px; font-size: 20px; color: #9ca3af; }
+                        .seal { position: absolute; bottom: 30px; left: 50px; width: 120px; height: 120px; border: 4px solid #ef4444; border-radius: 50%; color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; transform: rotate(-15deg); opacity: 0.8; text-align: center; line-height: 1.2;}
+                    </style>
+                </head>
+                <body>
+                    <div class="cert">
+                        <h1>🏆 数学推理小达人 🏆</h1>
+                        <p class="subtitle">特发此状，以资鼓励！</p>
+                        <p class="desc">恭喜你在《森林数学大冒险》中成功闯过全部难关！<br/>你不仅算得准，还擅长找规律和解决生活难题，<br/>是一个真正的逻辑小侦探！</p>
+                        <div class="star">⭐⭐⭐⭐⭐</div>
+                        <div class="seal">智慧森林<br/>认证</div>
+                        <div class="date">${new Date().toLocaleDateString()}</div>
+                    </div>
+                    <script>
+                        window.onload = () => { setTimeout(() => window.print(), 500); }
+                    \x3C/script>
+                </body>
+                </html>
+                `;
+                
+                const blob = new Blob([certHTML], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '数学推理小达人奖状.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            if (gameState === 'start') {
+                return (
+                    <div className="bg-white rounded-[3rem] p-10 shadow-2xl text-center border-8 border-yellow-400 pop-in max-w-3xl mx-auto">
+                        <div className="text-8xl mb-6">🦁🐰🐻</div>
+                        <h1 className="text-5xl md:text-6xl font-bold text-green-600 mb-4 drop-shadow-sm leading-tight">
+                            森林数学大冒险
+                        </h1>
+                        <p className="text-2xl text-gray-500 mb-10 font-bold">
+                            🔍 找规律与逻辑推理特别挑战赛
+                        </p>
+                        <div className="flex flex-col md:flex-row justify-center gap-6">
+                            <button 
+                                onClick={startGame} 
+                                className="bg-orange-500 hover:bg-orange-400 text-white text-3xl font-bold py-5 px-12 rounded-full shadow-[0_8px_0_#c2410c] active:shadow-[0_0px_0_#c2410c] active:translate-y-2 transition-all"
+                            >
+                                开始探险 ▶️
+                            </button>
+                            {errorLog.length > 0 && (
+                                <button 
+                                    onClick={() => setGameState('errorBook')} 
+                                    className="bg-purple-500 hover:bg-purple-400 text-white text-3xl font-bold py-5 px-12 rounded-full shadow-[0_8px_0_#7e22ce] active:shadow-[0_0px_0_#7e22ce] active:translate-y-2 transition-all"
+                                >
+                                    错题本 📚
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'result') {
+                return (
+                    <div className="bg-white rounded-[3rem] p-10 shadow-2xl text-center border-8 border-pink-400 pop-in max-w-3xl mx-auto">
+                        <h1 className="text-7xl mb-6">🎉 🏆 🎉</h1>
+                        <h1 className="text-4xl md:text-6xl font-bold text-pink-600 mb-6 drop-shadow-sm">
+                            太棒啦！全部通关！
+                        </h1>
+                        <p className="text-xl md:text-2xl text-gray-600 mb-12 font-bold leading-relaxed">
+                            复杂的找规律和填表题都难不倒你，<br/>你是个真正的数学小侦探！
+                        </p>
+                        
+                        <div className="flex flex-col md:flex-row justify-center gap-6">
+                            <button 
+                                onClick={downloadAward} 
+                                className="bg-green-500 hover:bg-green-400 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-[0_8px_0_#15803d] active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                                📥 下载奖状
+                            </button>
+                            <button 
+                                onClick={startGame} 
+                                className="bg-blue-500 hover:bg-blue-400 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-[0_8px_0_#1d4ed8] active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                                🔄 再玩一次
+                            </button>
+                            {errorLog.length > 0 && (
+                                <button 
+                                    onClick={() => setGameState('errorBook')} 
+                                    className="bg-purple-500 hover:bg-purple-400 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-[0_8px_0_#7e22ce] active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2"
+                                >
+                                    📚 查看错题
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'errorBook') {
+                return (
+                    <div className="bg-white rounded-[3rem] p-6 md:p-10 shadow-2xl border-8 border-purple-400 pop-in max-w-3xl mx-auto w-full">
+                        <div className="flex justify-between items-center mb-8 border-b-4 border-purple-100 pb-4">
+                            <h2 className="text-4xl font-bold text-purple-600">📚 艾宾浩斯错题本</h2>
+                            <span className="text-lg font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-full">
+                                待复习：{errorLog.length} 题
+                            </span>
+                        </div>
+                        
+                        {errorLog.length === 0 ? (
+                            <div className="text-center py-12">
+                                <div className="text-6xl mb-4">🌟</div>
+                                <p className="text-2xl text-gray-500 font-bold">太棒了！错题库已经清空啦！</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
+                                {errorLog.map((log, index) => (
+                                    <div key={index} className="bg-purple-50 p-6 rounded-2xl border-2 border-purple-200 text-left">
+                                        <p className="text-sm font-bold text-purple-400 mb-2">{log.levelTitle}</p>
+                                        <h3 className="text-xl font-bold text-gray-800 mb-4 whitespace-pre-wrap">{log.q}</h3>
+                                        <div className="flex flex-col md:flex-row gap-4">
+                                            <div className="bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold border border-red-200">
+                                                ❌ 当时选错: {log.wrongA}
+                                            </div>
+                                            <div className="bg-green-100 text-green-600 px-4 py-2 rounded-xl font-bold border border-green-200">
+                                                ✅ 正确答案: {log.correctA}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="mt-10 flex flex-col md:flex-row justify-center gap-6">
+                            <button 
+                                onClick={() => setErrorLog([])} 
+                                className="bg-red-500 hover:bg-red-400 text-white text-xl font-bold py-3 px-8 rounded-full shadow-[0_6px_0_#b91c1c] active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                                🗑️ 清洗错题数据库
+                            </button>
+                            <button 
+                                onClick={() => setGameState('start')} 
+                                className="bg-blue-500 hover:bg-blue-400 text-white text-xl font-bold py-3 px-8 rounded-full shadow-[0_6px_0_#1d4ed8] active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                                🔙 返回主页
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentLevel = levels[levelIdx];
+            const currentQ = currentLevel.questions[qIdx];
+            const btnColors = [
+                "bg-yellow-400 shadow-[0_8px_0_#b45309]",
+                "bg-blue-400 shadow-[0_8px_0_#1d4ed8]",
+                "bg-pink-400 shadow-[0_8px_0_#be185d]"
+            ];
+
+            return (
+                <div className="bg-white rounded-[3rem] p-6 md:p-10 shadow-2xl border-8 border-green-400 relative overflow-hidden pop-in">
+                    {showSuccess && (
+                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-10 rounded-[2.5rem]">
+                            <div className="text-9xl mb-4 animate-bounce">✅</div>
+                            <h2 className="text-4xl font-bold text-green-500">思路真清晰！</h2>
+                        </div>
+                    )}
+                    
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b-4 border-gray-100 pb-6">
+                        <div>
+                            <h2 className="text-3xl font-bold text-blue-600 mb-2">
+                                {currentLevel.title}
+                            </h2>
+                            <span className="text-lg font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                                {currentLevel.subtitle}
+                            </span>
+                        </div>
+                        <span className="text-xl font-bold text-green-600 bg-green-100 px-5 py-2 rounded-full border-2 border-green-200 whitespace-nowrap">
+                            进度：{qIdx + 1} / {currentLevel.questions.length}
+                        </span>
+                    </div>
+
+                    <div className="mb-10 mt-6 text-center bg-blue-50 p-6 md:p-10 rounded-3xl border-2 border-blue-100 min-h-[160px] flex items-center justify-center">
+                        <h3 className="text-2xl md:text-4xl font-bold text-gray-800 leading-relaxed whitespace-pre-wrap">
+                            {currentQ.q}
+                        </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {currentQ.options.map((opt, idx) => {
+                            const isWrong = wrongOptions.includes(opt);
+                            const baseColor = btnColors[idx % btnColors.length];
+                            
+                            return (
+                                <button 
+                                    key={idx}
+                                    onClick={() => !isWrong && !showSuccess && handleAnswer(opt)}
+                                    className={`
+                                        text-2xl md:text-3xl font-bold text-white py-6 px-4 rounded-3xl transition-all flex items-center justify-center min-h-[100px]
+                                        ${isWrong 
+                                            ? 'bg-gray-300 shadow-none opacity-50 cursor-not-allowed shake' 
+                                            : `${baseColor} active:translate-y-2 active:shadow-none hover:brightness-110`
+                                        }
+                                    `}
+                                >
+                                    <span className="leading-snug">{opt}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
